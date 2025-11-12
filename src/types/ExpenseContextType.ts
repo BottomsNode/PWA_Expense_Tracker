@@ -5,5 +5,6 @@ export type ExpenseContextType = {
     addExpense: (expense: Omit<Expense, 'id'>) => void
     deleteExpense: (id: string) => void
     clearAll: () => void
+    purgeDeleted: () => void
     total: number
 }

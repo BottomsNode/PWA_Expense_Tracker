@@ -1,9 +1,9 @@
 import { NavLink } from "react-router-dom"
-import { Menu, X } from "lucide-react"
+import { Github, HeartHandshake, Menu, X } from "lucide-react"
 import { useDashboardLayout } from "@/hooks"
 import { LayoutProps } from "@/props"
 
-const DashboardLayout = ({ children }: LayoutProps) => {
+export const DashboardLayout = ({ children }: LayoutProps) => {
     const {
         sidebarOpen,
         isMobile,
@@ -26,11 +26,15 @@ const DashboardLayout = ({ children }: LayoutProps) => {
                     <div className="p-6 flex flex-col gap-6">
                         <div className="text-center">
                             <div className="inline-flex items-center justify-center w-12 h-12 bg-linear-to-r from-blue-500 to-indigo-600 rounded-xl mb-4">
-                                <span className="text-2xl">💰</span>
+                                <HeartHandshake className="text-white w-6 h-6" />
                             </div>
                             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
                                 Expense Tracker
                             </h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1 mt-1">
+                                <HeartHandshake className="w-5 h-6 text-blue-500" />
+                                <span className="font-medium">Nishit Shivdasani</span>
+                            </p>
                         </div>
 
                         <nav className="flex flex-col gap-3">
@@ -52,8 +56,27 @@ const DashboardLayout = ({ children }: LayoutProps) => {
                         </nav>
                     </div>
 
-                    <div className="p-4 text-xs text-gray-500 dark:text-gray-400 text-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                        © {new Date().getFullYear()} Expense Tracker
+                    <div
+                        className="p-4 text-xs text-gray-500 dark:text-gray-400 text-center
+             border-t border-gray-200 dark:border-gray-700
+             bg-gray-50 dark:bg-gray-700/50 flex flex-col items-center justify-center"
+                    >
+                        <div className="inline-flex items-center gap-1.5">
+                            <span>© {new Date().getFullYear()}</span>
+                            <a
+                                href="https://github.com/BottomsNode"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-medium 
+                 text-blue-600 dark:text-blue-400 
+                 hover:text-blue-700 dark:hover:text-blue-300 
+                 transition-colors"
+                            >
+                                <Github className="w-3.5 h-3.5 -mt-px" /> {/* tiny upward nudge for optical centering */}
+                                <span>BottomsNode</span>
+                            </a>
+                            <span>. All Rights Reserved.</span>
+                        </div>
                     </div>
                 </aside>
             )}
@@ -94,5 +117,3 @@ const DashboardLayout = ({ children }: LayoutProps) => {
         </div>
     )
 }
-
-export default DashboardLayout

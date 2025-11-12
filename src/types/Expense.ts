@@ -5,9 +5,11 @@ export interface Expense {
     date: string
     time: string
     description?: string
+    category?: string
     location?: {
         latitude: number
         longitude: number
         address?: string
     }
+    deleted?: boolean
 }

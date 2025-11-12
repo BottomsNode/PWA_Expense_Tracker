@@ -8,6 +8,7 @@ export const useAddExpense = () => {
     const [title, setTitle] = useState("")
     const [amount, setAmount] = useState("")
     const [description, setDescription] = useState("")
+    const [category, setCategory] = useState("")
     const [error, setError] = useState("")
     const [popupMessage, setPopupMessage] = useState("")
     const [popupType, setPopupType] = useState<"success" | "error" | "info">("info")
@@ -17,13 +18,13 @@ export const useAddExpense = () => {
         e.preventDefault()
 
         if (!title.trim() || !amount.trim()) {
-            setError("⚠️ Please fill out all required fields.")
+            setError("Please fill out all required fields.")
             return
         }
 
         const parsedAmount = parseFloat(amount)
         if (isNaN(parsedAmount) || parsedAmount <= 0) {
-            setError("⚠️ Please enter a valid amount greater than 0.")
+            setError("Please enter a valid amount greater than 0.")
             return
         }
 
@@ -41,13 +42,16 @@ export const useAddExpense = () => {
             date,
             time,
             description: description.trim() || undefined,
+            category: category || undefined,
             location: permissionGranted ? location || undefined : undefined,
         })
 
         setTitle("")
         setAmount("")
         setDescription("")
+        setCategory("")
         setError("")
+
         setPopupType("success")
         setPopupMessage("✅ Expense Added Successfully!")
         setShowPopup(true)
@@ -57,6 +61,7 @@ export const useAddExpense = () => {
         title,
         amount,
         description,
+        category,
         error,
         popupMessage,
         popupType,
@@ -64,6 +69,7 @@ export const useAddExpense = () => {
         setTitle,
         setAmount,
         setDescription,
+        setCategory,
         setShowPopup,
         setPopupMessage,
         setPopupType,

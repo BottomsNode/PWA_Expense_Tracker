@@ -1,34 +1,35 @@
-import { Expense, ExpenseContext } from '@/types'
-import { useState, useEffect } from 'react'
+import { Expense, ExpenseContext } from "@/types"
+import { useState, useEffect } from "react"
 
 export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [expenses, setExpenses] = useState<Expense[]>(() => {
-        const stored = localStorage.getItem('expenses')
+        const stored = localStorage.getItem("expenses")
         return stored ? JSON.parse(stored) : []
     })
 
     useEffect(() => {
-        localStorage.setItem('expenses', JSON.stringify(expenses))
+        localStorage.setItem("expenses", JSON.stringify(expenses))
     }, [expenses])
 
-    const addExpense = (expense: Omit<Expense, 'id'>) => {
+    const addExpense = (expense: Omit<Expense, "id">) => {
         const newExpense = { id: crypto.randomUUID(), ...expense }
         setExpenses((prev) => [newExpense, ...prev])
     }
 
     const deleteExpense = (id: string) => {
-        setExpenses((prev) => prev.filter((e) => e.id !== id))
+        setExpenses((prev) =>
+            prev.map((e) => (e.id === id ? { ...e, deleted: true } : e))
+        )
     }
 
-    const clearAll = () => {
-        if (confirm('Clear all expenses?')) setExpenses([])
-    }
+    const clearAll = () => setExpenses([])
 
-    const total = expenses.reduce((sum, e) => sum + e.amount, 0)
+    const purgeDeleted = () => setExpenses((prev) => prev.filter((e) => !e.deleted))
+    const total = expenses.reduce((sum, e) => (e.deleted ? sum : sum + e.amount), 0)
 
     return (
         <ExpenseContext.Provider
-            value={{ expenses, addExpense, deleteExpense, clearAll, total }}
+            value={{ expenses, addExpense, deleteExpense, clearAll, purgeDeleted, total }}
         >
             {children}
         </ExpenseContext.Provider>

@@ -31,9 +31,13 @@ export default defineConfig({
     outDir: "dist",
     assetsDir: "assets",
     sourcemap: false,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          ui: ['lucide-react'],
+        },
       },
     },
   },
