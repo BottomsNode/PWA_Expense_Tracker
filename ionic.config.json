@@ -1,0 +1,8 @@
+{
+  "name": "expense-tracker",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react",
+  "id": "3ebb9fb7"
+}

@@ -817,6 +817,11 @@
     "@babel/helper-string-parser" "^7.27.1"
     "@babel/helper-validator-identifier" "^7.28.5"
 
+"@capacitor/android@^7.4.4":
+  version "7.4.4"
+  resolved "https://registry.yarnpkg.com/@capacitor/android/-/android-7.4.4.tgz#a14a1e844bd5079982427e247fdd17555b5fbedd"
+  integrity sha512-y8knfV1JXNrd6XZZLZireGT+EBCN0lvOo+HZ/s7L8LkrPBu4nY5UZn0Wxz4yOezItEII9rqYJSHsS5fMJG9gdw==
+
 "@capacitor/cli@^7.4.4":
   version "7.4.4"
   resolved "https://registry.yarnpkg.com/@capacitor/cli/-/cli-7.4.4.tgz#bfce7db8b15d6f44c9d58dc338a5e3d662fecfbb"
@@ -846,6 +851,18 @@
   integrity sha512-xzjxpr+d2zwTpCaN0k+C6wKSZzWFAb9OVEUtmO72ihjr/NEDoLvsGl4WLfjWPcCO2zOy0b2X52tfRWjECFUjtw==
   dependencies:
     tslib "^2.1.0"
+
+"@capacitor/geolocation@^7.1.5":
+  version "7.1.5"
+  resolved "https://registry.yarnpkg.com/@capacitor/geolocation/-/geolocation-7.1.5.tgz#e624d8cd900cfffbd512a213a9220e82573b5dcc"
+  integrity sha512-ndfFI4Hd1JF3aYcehtM+PHlP+PqTQZOVzxKupbMqzocDEwF1SCkr2gcO8yZ0NeFvyVdw1jRjOpHXZZUNQRV2sA==
+  dependencies:
+    "@capacitor/synapse" "^1.0.3"
+
+"@capacitor/synapse@^1.0.3":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@capacitor/synapse/-/synapse-1.0.4.tgz#c6beb33119d9656b1f04cb7783989fb78933ef6d"
+  integrity sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==
 
 "@emnapi/core@^1.5.0", "@emnapi/core@^1.6.0":
   version "1.7.0"
