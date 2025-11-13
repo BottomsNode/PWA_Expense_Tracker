@@ -1,0 +1,112 @@
+version: 2
+updates:
+  # NPM dependencies - Regular updates
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 8
+    assignees:
+      - "BottomsNode"
+    reviewers:
+      - "BottomsNode"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "npm"
+    versioning-strategy: increase
+    # Allow security updates to bypass the ignore rules
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Group React-related updates
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      # Group Capacitor packages
+      capacitor:
+        patterns:
+          - "@capacitor/*"
+      # Group Ionic packages
+      ionic:
+        patterns:
+          - "@ionic/*"
+          - "ionicons"
+      # Group testing libraries
+      testing:
+        patterns:
+          - "jest*"
+          - "@testing-library/*"
+          - "vitest*"
+      # Group build tools
+      build-tools:
+        patterns:
+          - "vite*"
+          - "webpack*"
+          - "rollup*"
+          - "esbuild*"
+      # Group linting tools
+      linting:
+        patterns:
+          - "eslint*"
+          - "prettier*"
+          - "@typescript-eslint/*"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    assignees:
+      - "BottomsNode"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automation"
+
+  # Gradle dependencies
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    assignees:
+      - "BottomsNode"
+    commit-message:
+      prefix: "chore(android)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "android"
+    ignore:
+      # Ignore Android Gradle Plugin major updates (requires manual migration)
+      - dependency-name: "com.android.tools.build:gradle"
+        update-types: ["version-update:semver-major"]
+      # Ignore Kotlin major updates (can break compatibility)
+      - dependency-name: "org.jetbrains.kotlin:*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Group AndroidX libraries
+      androidx:
+        patterns:
+          - "androidx.*"
+      # Group Google/Firebase services
+      google-services:
+        patterns:
+          - "com.google.android.*"
+          - "com.google.firebase:*"

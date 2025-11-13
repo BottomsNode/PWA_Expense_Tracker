@@ -1,0 +1,34 @@
+# .github/workflows/security-check.yml
+name: Daily Security Check
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # 9 AM daily
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Check for vulnerabilities
+        run: |
+          yarn audit --level moderate || true
+          
+      - name: Create issue if vulnerabilities found
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Security vulnerabilities detected',
+              body: 'Run `yarn audit` to see details.',
+              labels: ['security', 'dependencies']
+            })
