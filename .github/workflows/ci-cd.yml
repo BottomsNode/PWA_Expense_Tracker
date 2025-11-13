@@ -17,7 +17,7 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  JAVA_VERSION: '17'
+  JAVA_VERSION: '21'
   JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
@@ -236,8 +236,8 @@ jobs:
     steps:
       - name: Check build status
         run: |
-          echo "Web build: ${{ needs.build-web.result }}"
-          echo "Android build: ${{ needs.build-android.result }}"
+          web_result="${{ needs.build-web.result }}"
+          android_result="${{ needs.build-android.result }}"
           
           echo "Web build: $web_result"
           echo "Android build: $android_result"
