@@ -117,7 +117,6 @@ src/
 ├─ RootApp.tsx
 ├─ main.tsx
 ├─ index.css
-└─ vite-env.d.ts
 ```
 
 ---
