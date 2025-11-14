@@ -50,6 +50,8 @@ public class SmsReceiver extends BroadcastReceiver {
         data.put("body", fullBody.toString());
         data.put("sender", sender != null ? sender : "unknown");
 
-        bridge.triggerWindowJSEvent("onSMSReceived", data.toString());
+        if (bridge != null) {
+    bridge.triggerWindowJSEvent("onSMSReceived", data.toString());
+}
     }
 }
