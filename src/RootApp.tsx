@@ -3,7 +3,7 @@ import { ThemeProvider, ExpenseProvider, LocationProvider } from "@/providers";
 import App from "@/App";
 import { useServiceWorker } from "@/hooks";
 import { Popup } from "@/base";
-import { SmsListenerWrapper } from "@/components";
+import { NotificationListenerWrapper } from "@/components";
 
 const RootApp = () => {
   const { updateAvailable, reloadApp } = useServiceWorker();
@@ -14,7 +14,7 @@ const RootApp = () => {
         <ThemeProvider>
           <ExpenseProvider>
             <LocationProvider>
-              <SmsListenerWrapper />
+              <NotificationListenerWrapper />
               <App />
             </LocationProvider>
           </ExpenseProvider>

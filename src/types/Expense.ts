@@ -13,9 +13,7 @@ export interface Expense {
   };
   deleted?: boolean;
   hash?: string;
-
-  // ADD THESE
   tags?: string[];
   confidence?: number;
-  source?: "sms" | "manual";
+  source?: "manual" | "notification";
 }

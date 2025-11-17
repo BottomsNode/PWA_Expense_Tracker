@@ -12,7 +12,7 @@
       "@props/*": ["props/*"],
       "@providers/*": ["providers/*"],
       "@types/*": ["types/*"],
-      "@plugins/*": ["./plugins/*"]
+      "@plugins/*": ["./plugins/*/dist"]
     }
   },
   "files": [],

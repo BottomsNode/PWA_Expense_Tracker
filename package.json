@@ -1,7 +1,7 @@
 {
   "name": "expense-tracker-pwa",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
   "scripts": {
     "dev": "bun --bun vite",
@@ -21,7 +21,7 @@
     "@capacitor/geolocation": "^7.1.5",
     "@emotion/is-prop-valid": "^1.4.0",
     "@headlessui/react": "^2.2.9",
-    "capacitor-sms": "file:plugins/capacitor-sms",
+    "capacitor-notification-listener": "file:plugins/capacitor-notification-listener",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.553.0",

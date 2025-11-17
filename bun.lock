@@ -11,7 +11,7 @@
         "@capacitor/geolocation": "^7.1.5",
         "@emotion/is-prop-valid": "^1.4.0",
         "@headlessui/react": "^2.2.9",
-        "capacitor-sms": "file:plugins/capacitor-sms",
+        "capacitor-notification-listener": "file:plugins/capacitor-notification-listener",
         "date-fns": "^4.1.0",
         "framer-motion": "^12.23.24",
         "lucide-react": "^0.553.0",
@@ -650,7 +650,7 @@
 
     "caniuse-lite": ["caniuse-lite@1.0.30001754", "", {}, "sha512-x6OeBXueoAceOmotzx3PO4Zpt4rzpeIFsSr6AAePTZxSkXiYDUmpypEl7e2+8NCd9bD7bXjqyef8CJYPC1jfxg=="],
 
-    "capacitor-sms": ["capacitor-sms@file:plugins/capacitor-sms", { "dependencies": { "@capacitor/core": "^7.0.0" }, "devDependencies": { "typescript": "^5.9.3" } }],
+    "capacitor-notification-listener": ["capacitor-notification-listener@file:plugins/capacitor-notification-listener", { "devDependencies": { "typescript": "^5.6.0" }, "peerDependencies": { "@capacitor/core": "^6.0.0" } }],
 
     "chalk": ["chalk@4.1.2", "", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
 

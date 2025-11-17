@@ -12,3 +12,4 @@ export * from "./ChartCardProps";
 export * from "./SummaryCardProps";
 export * from "./LocationProviderProps";
 export * from "./ClassificationProps";
+export * from "./NotificationDataProps";

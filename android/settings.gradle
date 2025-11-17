@@ -2,7 +2,7 @@ include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
-include ':capacitor-sms'
-project(':capacitor-sms').projectDir = new File('../plugins/capacitor-sms/android')
+include ':capacitor-notification-listener'
+project(':capacitor-notification-listener').projectDir = new File('../plugins/capacitor-notification-listener/android')
 
 apply from: 'capacitor.settings.gradle'

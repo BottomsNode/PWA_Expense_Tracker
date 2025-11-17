@@ -14,6 +14,14 @@ export const useDailyExpenses = () => {
     {},
   );
 
+  for (const date in groupedExpenses) {
+    groupedExpenses[date].sort(
+      (a, b) =>
+        new Date(`${b.date} ${b.time}`).getTime() -
+        new Date(`${a.date} ${a.time}`).getTime(),
+    );
+  }
+
   const sortedDates = Object.keys(groupedExpenses).sort(
     (a, b) => new Date(b).getTime() - new Date(a).getTime(),
   );
@@ -25,7 +33,10 @@ export const useDailyExpenses = () => {
     ]),
   );
 
-  const hasExpenses = expenses.length > 0;
-
-  return { groupedExpenses, sortedDates, dailyTotals, hasExpenses };
+  return {
+    groupedExpenses,
+    sortedDates,
+    dailyTotals,
+    hasExpenses: expenses.length > 0,
+  };
 };

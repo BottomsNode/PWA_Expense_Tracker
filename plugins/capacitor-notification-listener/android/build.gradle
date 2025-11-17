@@ -1,0 +1,22 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace "com.bottomsnode.notifications"
+    compileSdk = 35
+
+    defaultConfig {
+        minSdk = 22
+        targetSdk = 35
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java']
+            manifest.srcFile 'src/main/AndroidManifest.xml'
+        }
+    }
+}
+
+dependencies {
+    implementation project(':capacitor-android')
+}

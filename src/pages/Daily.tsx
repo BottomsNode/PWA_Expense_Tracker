@@ -119,11 +119,11 @@ export const Daily = () => {
                         id={`expense-details-${key}`}
                         className="pl-6 pr-4 mt-3 space-y-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-4"
                       >
-                        {/* SMS Auto Detected Badge */}
-                        {expense.source === "sms" && (
-                          <div className="flex items-center gap-2 text-s text-white bg-blue-100 dark:bg-blue-900 px-3 py-1 rounded-full w-fit">
+                        {/* Notification Auto-detected */}
+                        {expense.source === "notification" && (
+                          <div className="flex items-center gap-2 text-s bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full w-fit">
                             <Sparkles className="h-4 w-4" />
-                            SMS Auto-detected
+                            Notification Auto-detected
                           </div>
                         )}
 

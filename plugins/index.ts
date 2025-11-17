@@ -1,1 +1,1 @@
-export * from "./capacitor-sms";
+export * from "./capacitor-notification-listener";

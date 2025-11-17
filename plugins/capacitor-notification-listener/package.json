@@ -1,0 +1,41 @@
+{
+  "name": "capacitor-notification-listener",
+  "version": "1.0.0",
+  "description": "Capacitor plugin for Android Notification Listener (Play Store safe replacement for SMS reading)",
+  "main": "dist/index.js",
+  "types": "dist/definitions.d.ts",
+  "files": [
+    "dist/",
+    "android/",
+    "src/"
+  ],
+  "scripts": {
+    "build": "bun run tsc",
+    "watch": "bun run tsc --watch",
+    "prepublish": "bun run build"
+  },
+  "keywords": [
+    "capacitor",
+    "android",
+    "notification",
+    "listener",
+    "plugin",
+    "upi",
+    "bank",
+    "auto-expense"
+  ],
+  "author": "BottomsNode",
+  "license": "MIT",
+  "peerDependencies": {
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "packageManager": "bun@1.1.0",
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  }
+}

@@ -5,5 +5,5 @@ project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/
 include ':capacitor-geolocation'
 project(':capacitor-geolocation').projectDir = new File('../node_modules/@capacitor/geolocation/android')
 
-include ':capacitor-sms'
-project(':capacitor-sms').projectDir = new File('../node_modules/capacitor-sms/android')
+include ':capacitor-notification-listener'
+project(':capacitor-notification-listener').projectDir = new File('../node_modules/capacitor-notification-listener/android')

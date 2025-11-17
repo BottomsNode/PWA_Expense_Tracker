@@ -45,10 +45,17 @@ export const Monthly = () => {
 
   const dayExpenses = useMemo(() => {
     if (!selectedDay) return [];
-    return stats.expenses.filter((expense) => {
+
+    const filtered = stats.expenses.filter((expense) => {
       const [y, m, d] = expense.date.split("-").map(Number);
       return y === selectedYear && m - 1 === selectedMonth && d === selectedDay;
     });
+
+    return filtered.sort(
+      (a, b) =>
+        new Date(`${b.date} ${b.time}`).getTime() -
+        new Date(`${a.date} ${a.time}`).getTime(),
+    );
   }, [selectedDay, selectedMonth, selectedYear, stats.expenses]);
 
   const dayTotal = useMemo(
@@ -170,7 +177,7 @@ export const Monthly = () => {
                   </div>
 
                   {/* SMS BADGE */}
-                  {expense.source === "sms" && (
+                  {expense.source === "notification" && (
                     <span className="flex items-center gap-2 text-xs text-white bg-blue-600 dark:bg-blue-700 px-3 py-1 rounded-full w-fit">
                       <Sparkles className="h-4 w-4" />
                       SMS Auto-detected

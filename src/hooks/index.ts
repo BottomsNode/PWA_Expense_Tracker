@@ -7,4 +7,4 @@ export * from "./useDailyExpenses";
 export * from "./useLocationPermission";
 export * from "./useMonthlyStats";
 export * from "./useNativeOrWebLocation";
-export * from "./useSmsListener";
+export * from "./useNotificationListener";
