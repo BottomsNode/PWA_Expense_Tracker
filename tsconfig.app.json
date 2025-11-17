@@ -15,20 +15,7 @@
     "resolveJsonModule": true,
     "useDefineForClassFields": true,
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "baseUrl": "./src",
-    "paths": {
-      "@/*": ["*"],
-      "@base/*": ["base/*"],
-      "@components/*": ["components/*"],
-      "@context/*": ["context/*"],
-      "@hooks/*": ["hooks/*"],
-      "@layout/*": ["layout/*"],
-      "@pages/*": ["pages/*"],
-      "@props/*": ["props/*"],
-      "@providers/*": ["providers/*"],
-      "@types/*": ["types/*"],
-      "@plugins/*": ["../plugins/*"]
-    }
+    "baseUrl": "."
   },
   "include": ["src"]
 }

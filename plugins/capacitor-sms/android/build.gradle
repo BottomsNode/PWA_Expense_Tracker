@@ -1,6 +1,4 @@
-plugins {
-    id 'com.android.library'
-}
+apply plugin: 'com.android.library'
 
 android {
     namespace "com.bottomsnode.sms"
@@ -11,20 +9,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
     }
 
-    java {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
-        }
-    }
-
-    sourceSets {
-        main.java.srcDirs += 'src/main/java'
-        main.manifest.srcFile 'src/main/AndroidManifest.xml'
-        main.res.srcDirs += 'src/main/res'
+    buildFeatures {
+        buildConfig = true
     }
 }
 
@@ -32,4 +22,11 @@ dependencies {
     implementation project(':capacitor-android')
     implementation "androidx.core:core:1.17.0"
     implementation "androidx.appcompat:appcompat:1.6.1"
+    
+    // Remove if you don't actually use geolocation in your SMS plugin
+    // implementation project(':capacitor-geolocation')
+}
+
+if (hasProperty('postBuildExtras')) {
+    postBuildExtras()
 }

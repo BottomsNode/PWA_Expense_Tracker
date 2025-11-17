@@ -4,17 +4,18 @@
   "main": "dist/index.js",
   "types": "dist/definitions.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "bunx tsc",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   },
   "capacitor": {
     "android": {
       "src": "android"
     }
-  },
-  "devDependencies": {
-    "typescript": "^5.9.3"
   }
 }

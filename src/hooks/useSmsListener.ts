@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { classifySms } from "@/utils/smsClassifier";
 import { useExpenseContext } from "@/context";
 import { SmsReceivedEvent } from "@/types";
-import { Sms, SmsMessage } from "@plugins/capacitor-sms";
+import { SmsMessage, Sms } from "@plugins/capacitor-sms";
 
 export function useSmsListener() {
   const { addExpense, expenses } = useExpenseContext();

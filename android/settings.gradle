@@ -1,36 +1,5 @@
-// ------------------------------------------------------------
-// 1) MUST BE FIRST: pluginManagement
-// ------------------------------------------------------------
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
+include ':app'
+include ':capacitor-cordova-android-plugins'
+project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
-// ------------------------------------------------------------
-// 2) MUST BE SECOND: dependencyResolutionManagement
-// ------------------------------------------------------------
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-// ------------------------------------------------------------
-// 3) Load Capacitor includes
-// ------------------------------------------------------------
 apply from: 'capacitor.settings.gradle'
-
-// ------------------------------------------------------------
-// 4) Include project modules
-// ------------------------------------------------------------
-include(":app")
-include(":capacitor-cordova-android-plugins")
-include(":capacitor-sms")
-
-project(":capacitor-cordova-android-plugins").projectDir = new File("./capacitor-cordova-android-plugins/")
-project(":capacitor-sms").projectDir = new File("../plugins/capacitor-sms/android")

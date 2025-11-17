@@ -7,15 +7,23 @@ const config: CapacitorConfig = {
 
   server: {
     androidScheme: "https",
-    cleartext: true, // allow http if needed (local API, debug)
+    cleartext: true,
   },
 
   android: {
-    allowMixedContent: true, // avoids images/api blocking inside WebView
-    captureInput: true, // improves keyboard handling
+    allowMixedContent: true,
+    captureInput: true,
   },
 
   loggingBehavior: "production",
+
+  plugins: {
+    "capacitor-sms": {
+      android: {
+        path: "./plugins/capacitor-sms/android",
+      },
+    },
+  },
 };
 
 export default config;
