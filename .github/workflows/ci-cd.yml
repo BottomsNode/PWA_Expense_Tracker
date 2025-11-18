@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bun install --frozen-lockfile
-      - name: Run ESLint
+      - name: ESLint
         run: bunx eslint . --cache --cache-location .eslintcache
         continue-on-error: true
       - uses: actions/cache@v4
@@ -52,7 +52,7 @@ jobs:
           key: eslint-${{ github.sha }}
 
   # ------------------------------------------------------------
-  # 3. Type Checking
+  # 3. Type Check
   # ------------------------------------------------------------
   typecheck:
     runs-on: ubuntu-latest
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bun install --frozen-lockfile
-      - name: Type check
+      - name: Type Check
         run: bunx tsc --noEmit
         continue-on-error: true
 
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
       - run: bun install --frozen-lockfile
-      - name: Build web
+      - name: Build Web
         run: bun run build
       - uses: actions/upload-artifact@v4
         with:
@@ -122,6 +122,12 @@ jobs:
         with:
           name: web-build
           path: dist/
+
+      # ------------------------------------------------------------
+      # USE NPM FOR CAPACITOR (REQUIRED)
+      # ------------------------------------------------------------
+      - name: Install node_modules for Capacitor CLI
+        run: npm install --no-audit --no-fund
 
       - name: Capacitor Sync
         run: |
