@@ -6,6 +6,9 @@ import {
   MapPin,
   FileText,
   Sparkles,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Store,
 } from "lucide-react";
 import { format, parse } from "date-fns";
 import { useDailyExpenses } from "@/hooks";
@@ -47,9 +50,11 @@ export const Daily = () => {
       {/* Daily groups */}
       {sortedDates.map((date) => {
         const expenses = groupedExpenses[date];
-        // Find the most expensive expense for the day
+
+        // FIXED: find most expensive correctly even for credit-as-negative
         const mostExpensive = expenses.reduce(
-          (max, expense) => (expense.amount > max.amount ? expense : max),
+          (max, expense) =>
+            Math.abs(expense.amount) > Math.abs(max.amount) ? expense : max,
           expenses[0],
         );
 
@@ -68,15 +73,17 @@ export const Daily = () => {
                   {expenses.length} {expenses.length === 1 ? "item" : "items"}
                 </p>
               </div>
+
               <div className="text-left sm:text-right">
                 <div className="flex items-center gap-2 text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
                   <IndianRupee className="h-5 w-5" />
                   {formatIndianCurrency(dailyTotals[date])}
                 </div>
+
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Top:{" "}
                   <span className="font-medium">{mostExpensive.title}</span> (₹
-                  {formatIndianNumber(mostExpensive.amount)})
+                  {formatIndianNumber(Math.abs(mostExpensive.amount))})
                 </p>
               </div>
             </div>
@@ -92,80 +99,78 @@ export const Daily = () => {
                     {/* Collapsible Header */}
                     <button
                       onClick={() => toggleExpand(key)}
-                      className="flex items-center justify-between w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                      aria-expanded={isOpen}
-                      aria-controls={`expense-details-${key}`}
-                      style={{ minHeight: "48px" }} // Ensure touch target
+                      className="flex items-center justify-between w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Clock className="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" />
+                        <Clock className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+
                         <span className="text-gray-800 dark:text-gray-200 font-medium text-base truncate">
                           {expense.title}
                         </span>
                       </div>
+
                       <div className="flex items-center gap-3 shrink-0">
+                        {/* Direction: Credit or Debit */}
+                        {expense.direction === "credit" ? (
+                          <ArrowUpRight className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <ArrowDownLeft className="h-5 w-5 text-red-500" />
+                        )}
+
                         <span className="font-bold text-gray-900 dark:text-gray-100 text-lg">
-                          ₹{formatIndianCurrency(expense.amount)}
+                          ₹{formatIndianCurrency(Math.abs(expense.amount))}
                         </span>
+
                         <ChevronDown
-                          className={`h-5 w-5 transition-transform duration-300 ${isOpen ? "rotate-180 text-blue-600" : "text-gray-400"}`}
+                          className={`h-5 w-5 transition-transform duration-300 ${
+                            isOpen
+                              ? "rotate-180 text-blue-600"
+                              : "text-gray-400"
+                          }`}
                         />
                       </div>
                     </button>
 
-                    {/* Expanded Content */}
                     {isOpen && (
-                      <div
-                        id={`expense-details-${key}`}
-                        className="pl-6 pr-4 mt-3 space-y-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-4"
-                      >
+                      <div className="pl-6 pr-4 mt-3 space-y-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                         {/* Notification Auto-detected */}
                         {expense.source === "notification" && (
-                          <div className="flex items-center gap-2 text-s bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full w-fit">
+                          <div className="flex items-center gap-2 px-3 py-1 text-blue-800 bg-blue-100 dark:bg-blue-900 dark:text-blue-200 rounded-full w-fit">
                             <Sparkles className="h-4 w-4" />
                             Notification Auto-detected
                           </div>
                         )}
 
-                        {/* Tags */}
-                        {expense.tags && expense.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {expense.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-3 py-1 text-s rounded-full bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 font-medium"
-                              >
-                                #{tag}
-                              </span>
-                            ))}
+                        {/* Merchant */}
+                        {expense.merchant && (
+                          <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
+                            <Store className="h-4 w-4" />
+                            <span className="font-medium">
+                              Merchant: {expense.merchant}
+                            </span>
                           </div>
                         )}
 
-                        {/* Confidence Bar */}
-                        {typeof expense.confidence === "number" && (
-                          <div>
-                            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
-                              <span>Confidence</span>
-                              <span>
-                                {Math.round(expense.confidence * 100)}%
-                              </span>
+                        {/* Tags */}
+                        {typeof expense.tags === "object" &&
+                          expense.tags?.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {expense.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 font-medium"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
                             </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full">
-                              <div
-                                className="h-2 bg-green-500 rounded-full transition-all duration-500"
-                                style={{
-                                  width: `${expense.confidence * 100}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
+                          )}
 
                         {/* Description */}
                         {expense.description && (
                           <div className="flex items-start gap-3">
-                            <FileText className="h-5 w-5 text-gray-400 dark:text-gray-500 mt-0.5 shrink-0" />
-                            <p className="leading-relaxed text-base">
+                            <FileText className="h-5 w-5 text-gray-400 dark:text-gray-500 mt-0.5" />
+                            <p className="leading-relaxed">
                               {expense.description}
                             </p>
                           </div>
@@ -174,20 +179,21 @@ export const Daily = () => {
                         {/* Location */}
                         {expense.location && (
                           <div className="flex items-center gap-3">
-                            <MapPin className="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <MapPin className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                             <a
                               href={`https://maps.google.com/?q=${expense.location.latitude},${expense.location.longitude}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 dark:text-blue-400 hover:underline text-base"
+                              className="text-blue-600 dark:text-blue-400 hover:underline"
                             >
                               {expense.location.address ||
-                                `${expense.location.latitude.toFixed(4)}, ${expense.location.longitude.toFixed(4)}`}
+                                `${expense.location.latitude.toFixed(
+                                  4,
+                                )}, ${expense.location.longitude.toFixed(4)}`}
                             </a>
                           </div>
                         )}
 
-                        {/* Time */}
                         <div className="text-xs text-gray-500 dark:text-gray-500 pt-2 border-t border-gray-200 dark:border-gray-600">
                           Recorded at: {expense.time}
                         </div>

@@ -14,7 +14,7 @@ export function useNotificationListener() {
   useEffect(() => {
     if (Capacitor.getPlatform() === "web") return;
 
-    let handle: PluginListenerHandle;
+    let handle: PluginListenerHandle | undefined;
 
     async function init() {
       try {
@@ -41,15 +41,21 @@ export function useNotificationListener() {
 
             addExpense({
               title: parsed.party || "Unknown",
+              merchant: parsed.party || null,
+              direction: parsed.direction,
+
               amount:
                 parsed.direction === "credit"
                   ? -parsed.amount!
                   : parsed.amount!,
+
               description: parsed.raw,
               category: parsed.category,
               hash: parsed.hash,
+
               date: new Date().toISOString().split("T")[0],
               time: new Date().toISOString(),
+
               confidence: parsed.confidence,
               tags: parsed.tags,
               source: "notification",

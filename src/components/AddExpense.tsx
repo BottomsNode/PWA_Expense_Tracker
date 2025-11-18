@@ -135,7 +135,7 @@ export const AddExpense: React.FC = () => {
 
         {/* 📍 Location Display */}
         {permissionGranted && location && (
-          <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 gap-3 py-1 px-2 bg-gray-50 dark:bg-gray-800 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 gap-3 py-3 px-4 bg-gray-50 dark:bg-gray-800 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700">
             <MapPin className="h-5 w-5 text-green-500 shrink-0" />
             <span className="font-medium leading-relaxed text-base">
               {location.address ||

@@ -33,28 +33,22 @@ export const Home = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-7 md:gap-8 w-full">
-        <div className="transform transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95 cursor-pointer">
-          <SummaryCard
-            title="Total Spent"
-            value={`₹${formatIndianCurrency(total)}`}
-            gradient="from-blue-600 to-indigo-700"
-          />
-        </div>
-        <div className="transform transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95 cursor-pointer">
-          <SummaryCard
-            title="Today’s Spend"
-            value={`₹${formatIndianCurrency(todayTotal)}`}
-            gradient="from-emerald-600 to-teal-700"
-          />
-        </div>
-        <div className="transform transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95 cursor-pointer">
-          <SummaryCard
-            title="Highest Expense"
-            value={`₹${formatIndianCurrency(maxExpense > 0 ? maxExpense : 0)}`}
-            gradient="from-rose-600 to-pink-700"
-          />
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 w-full">
+        <SummaryCard
+          title="Total Spent"
+          value={`₹${formatIndianCurrency(total)}`}
+          gradient="from-blue-600 to-indigo-700"
+        />
+        <SummaryCard
+          title="Today’s Spend"
+          value={`₹${formatIndianCurrency(todayTotal)}`}
+          gradient="from-emerald-600 to-teal-700"
+        />
+        <SummaryCard
+          title="Highest Expense"
+          value={`₹${formatIndianCurrency(maxExpense > 0 ? maxExpense : 0)}`}
+          gradient="from-rose-600 to-pink-700"
+        />
       </div>
 
       {/* Smart Insights */}

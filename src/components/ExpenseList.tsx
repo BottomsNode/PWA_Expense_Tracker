@@ -1,5 +1,5 @@
 import { useExpenseContext } from "@/context/expenseContext";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Modal } from "@/base";
 import { formatIndianCurrency } from "@/utils/number";
 
@@ -12,10 +12,18 @@ export const ExpenseList = () => {
   >(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  const activeExpenses = expenses.filter((e) => !e.deleted);
-  const deletedExpenses = expenses.filter((e) => e.deleted);
+  // 🔥 Sort NEWEST → OLDEST using date + time
+  const sortedExpenses = useMemo(() => {
+    return [...expenses].sort((a, b) => {
+      const tA = new Date(`${a.date} ${a.time}`).getTime();
+      const tB = new Date(`${b.date} ${b.time}`).getTime();
+      return tB - tA; // newest first
+    });
+  }, [expenses]);
 
-  // Handle modal actions
+  const activeExpenses = sortedExpenses.filter((e) => !e.deleted);
+  const deletedExpenses = sortedExpenses.filter((e) => e.deleted);
+
   const handleConfirm = () => {
     switch (modalType) {
       case "delete":
@@ -72,25 +80,33 @@ export const ExpenseList = () => {
           <div
             key={e.id}
             className="flex justify-between items-center bg-white dark:bg-gray-800
-                                    border border-gray-100 dark:border-gray-700 rounded-2xl p-4
-                                    shadow-sm hover:shadow-md transition-shadow duration-200"
+              border border-gray-100 dark:border-gray-700 rounded-2xl p-4
+              shadow-sm hover:shadow-md transition-shadow duration-200"
           >
             <div>
               <p className="font-semibold text-gray-800 dark:text-gray-100">
                 {e.title}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {new Date(e.date).toLocaleDateString("en-IN", {
+                {new Date(`${e.date} ${e.time}`).toLocaleString("en-IN", {
                   day: "2-digit",
                   month: "short",
                   year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
                 })}
               </p>
             </div>
 
             <div className="flex items-center gap-4">
-              <span className="font-bold text-green-600 dark:text-green-400 text-sm sm:text-base">
-                ₹{formatIndianCurrency(e.amount)}
+              <span
+                className={`font-bold text-sm sm:text-base ${
+                  e.direction === "credit"
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}
+              >
+                ₹{formatIndianCurrency(Math.abs(e.amount))}
               </span>
               <button
                 onClick={() => {
@@ -107,7 +123,7 @@ export const ExpenseList = () => {
         ))}
       </div>
 
-      {/* Deleted Expenses Section */}
+      {/* Deleted Expenses */}
       {deletedExpenses.length > 0 && (
         <div className="mt-8 border-t pt-4">
           <h4 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">
@@ -123,7 +139,7 @@ export const ExpenseList = () => {
                   {e.title}
                 </span>
                 <span className="text-gray-400 dark:text-gray-500">
-                  ₹{formatIndianCurrency(e.amount)}
+                  ₹{formatIndianCurrency(Math.abs(e.amount))}
                 </span>
               </div>
             ))}
@@ -131,7 +147,7 @@ export const ExpenseList = () => {
         </div>
       )}
 
-      {/* Total Section */}
+      {/* Total */}
       <div className="mt-6 text-right">
         <span className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Total:{" "}
@@ -141,7 +157,7 @@ export const ExpenseList = () => {
         </span>
       </div>
 
-      {/* Modal Handler */}
+      {/* Modal */}
       {modalType && (
         <Modal
           show={!!modalType}

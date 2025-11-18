@@ -6,6 +6,8 @@ export interface Expense {
   time: string;
   description?: string;
   category?: string;
+  merchant?: string | null;
+  direction?: "credit" | "debit" | "unknown";
   location?: {
     latitude: number;
     longitude: number;

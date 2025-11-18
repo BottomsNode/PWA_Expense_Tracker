@@ -161,18 +161,42 @@ export const Monthly = () => {
                 {/* LEFT COLUMN */}
                 <div className="flex flex-col gap-2 flex-1 min-w-0">
                   {/* TITLE */}
-                  <p className="font-semibold text-gray-900 dark:text-gray-100 wrap-break-word">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 break-words">
                     {expense.title}
                   </p>
 
-                  {/* TIME + CATEGORY */}
+                  {/* TIME + CATEGORY + MERCHANT + DIRECTION */}
                   <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap">
                     <span>{expense.time}</span>
+
+                    {/* Category */}
                     {expense.category && (
                       <>
                         <span>•</span>
                         <span>{expense.category}</span>
                       </>
+                    )}
+
+                    {/* Merchant */}
+                    {expense.merchant && (
+                      <>
+                        <span>•</span>
+                        <span className="text-purple-600 dark:text-purple-300 font-medium break-all">
+                          {expense.merchant}
+                        </span>
+                      </>
+                    )}
+
+                    {/* Direction */}
+                    {expense.direction === "credit" && (
+                      <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                        ↑ Credit
+                      </span>
+                    )}
+                    {expense.direction === "debit" && (
+                      <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                        ↓ Debit
+                      </span>
                     )}
                   </div>
 
@@ -198,29 +222,11 @@ export const Monthly = () => {
                     </div>
                   )}
 
-                  {/* CONFIDENCE BAR */}
-                  {typeof expense.confidence === "number" && (
-                    <div className="mt-1">
-                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        <span>Confidence</span>
-                        <span>{Math.round(expense.confidence * 100)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-300 dark:bg-gray-700 h-2 rounded-full">
-                        <div
-                          className="h-2 bg-green-500 rounded-full"
-                          style={{
-                            width: `${expense.confidence * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
                   {/* DESCRIPTION */}
                   {expense.description && (
                     <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm mt-1">
                       <FileText className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                      <p className="leading-relaxed wrap-break-word">
+                      <p className="leading-relaxed break-words">
                         {expense.description}
                       </p>
                     </div>
@@ -234,7 +240,7 @@ export const Monthly = () => {
                         href={`https://maps.google.com/?q=${expense.location.latitude},${expense.location.longitude}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-300 hover:underline wrap-break-word"
+                        className="text-blue-600 dark:text-blue-300 hover:underline break-all"
                       >
                         {expense.location.address ||
                           `${expense.location.latitude.toFixed(
@@ -246,8 +252,14 @@ export const Monthly = () => {
                 </div>
 
                 {/* RIGHT → AMOUNT */}
-                <span className="text-lg font-bold text-green-600 dark:text-green-400 whitespace-nowrap">
-                  ₹{formatIndianCurrency(expense.amount)}
+                <span
+                  className={`text-lg font-bold whitespace-nowrap ${
+                    expense.direction === "credit"
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  ₹{formatIndianCurrency(Math.abs(expense.amount))}
                 </span>
               </div>
             ))}

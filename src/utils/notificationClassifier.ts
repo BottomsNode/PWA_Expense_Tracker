@@ -37,14 +37,6 @@ export function recordCorrection(keyRaw: string, category: string) {
   saveMemory(mem);
 }
 
-export function getMemory() {
-  return loadMemory();
-}
-
-export function clearMemory() {
-  localStorage.removeItem(MEMORY_KEY);
-}
-
 /* ------------------------------------------
     UTILITIES
 ------------------------------------------- */
@@ -54,10 +46,9 @@ function normalize(s: string) {
 }
 
 function extractAmount(text: string): number | null {
-  const m =
-    text.match(/(?:inr|rs|₹)\s*([\d,]+(?:\.\d+)?)/i) ||
-    text.match(/([\d,]+(?:\.\d+)?)(?:\s*rs|\s*inr|₹)/i);
-
+  const m = text.match(
+    /(?:rs|inr|₹)?\s*([0-9,]+(?:\.[0-9]+)?)(?:\s*(?:rs|inr|₹))?/i,
+  );
   if (!m) return null;
   return Number(m[1].replace(/,/g, ""));
 }
@@ -74,48 +65,73 @@ function generateHash(str: string) {
   }
 }
 
-function detectFromList(text: string, list: Record<string, string>) {
-  for (const key in list) {
-    if (text.includes(key)) return list[key];
+function detectMerchant(text: string) {
+  // 1) Keyword merchants
+  for (const key in MERCHANT_KEYWORDS) {
+    if (text.includes(key)) return MERCHANT_KEYWORDS[key];
+  }
+
+  // 2) POS detection: "at Reliance Mall"
+  const posMatch = text.match(/at\s+([a-z0-9 &._-]+)/i);
+  if (posMatch) return posMatch[1];
+
+  // 3) Quoted names: "Starbucks"
+  const quoteMatch = text.match(/"([^"]+)"/);
+  if (quoteMatch) return quoteMatch[1];
+
+  // 4) UPI ID fallback
+  const upiMatch = text.match(/[a-z0-9.\-_]+@[a-z.]+/i);
+  if (upiMatch) return upiMatch[0];
+
+  // 5) BOB “to XXXXX”
+  const toMatch = text.match(/to\s+([a-z0-9@._-]+)/i);
+  if (toMatch) return toMatch[1];
+
+  return null;
+}
+
+function detectBank(text: string) {
+  for (const key in BANK_KEYWORDS) {
+    if (text.includes(key)) return BANK_KEYWORDS[key];
   }
   return null;
 }
 
-function addScore(map: ScoreMap, key: string, score: number) {
-  map[key] = (map[key] || 0) + score;
-}
-
-function computeHeuristics(text: string) {
-  const scores: ScoreMap = {};
-  const tags: Set<string> = new Set();
-
-  // Direction cues
-  if (
-    text.includes("paid") ||
-    text.includes("debited") ||
-    text.includes("withdraw")
-  )
-    addScore(scores, "debit", 5);
+function detectDirection(text: string): Direction {
+  // Strongest signals first
+  if (/\bcr\b\.?/i.test(text)) return "credit";
+  if (/\bdr\b\.?/i.test(text)) return "debit";
 
   if (
     text.includes("credited") ||
     text.includes("received") ||
     text.includes("deposited")
   )
-    addScore(scores, "credit", 6);
+    return "credit";
 
-  // UPI detection
-  if (text.includes("upi") || text.includes("phonepe") || text.includes("gpay"))
-    addScore(scores, "upi", 3);
+  if (
+    text.includes("debited") ||
+    text.includes("paid") ||
+    text.includes("withdraw") ||
+    text.includes("spent") ||
+    text.includes("sent") ||
+    text.includes("transfer")
+  )
+    return "debit";
 
-  // ATM detection
-  if (text.includes("atm") || text.includes("withdraw"))
-    addScore(scores, "atm", 6);
+  return "unknown";
+}
 
-  // Merchant detection
+function computeHeuristics(text: string) {
+  const scores: ScoreMap = {};
+  const tags: Set<string> = new Set();
+
+  if (text.includes("upi")) addScore(scores, "upi", 4);
+  if (text.includes("atm")) addScore(scores, "atm", 5);
+
   for (const k in MERCHANT_KEYWORDS) {
     if (text.includes(k)) {
-      addScore(scores, `merchant:${MERCHANT_KEYWORDS[k]}`, 5);
+      addScore(scores, `merchant:${MERCHANT_KEYWORDS[k]}`, 4);
 
       const tag = TAG_KEYWORDS[k];
       if (tag) tags.add(tag);
@@ -125,85 +141,33 @@ function computeHeuristics(text: string) {
   return { scores, tags: Array.from(tags) };
 }
 
-/* ------------------------------------------
-    RULE-PARSE (Initial layer)
-------------------------------------------- */
-
-function ruleParse(body: string) {
-  const raw = body;
-  const text = normalize(raw);
-  const amount = extractAmount(text);
-
-  let direction: Direction = "unknown";
-
-  if (
-    text.includes("credited") ||
-    text.includes("received") ||
-    text.includes("deposited")
-  ) {
-    direction = "credit";
-  } else if (
-    text.includes("debited") ||
-    text.includes("paid") ||
-    text.includes("withdraw")
-  ) {
-    direction = "debit";
-  }
-
-  return {
-    raw,
-    text,
-    amount,
-    merchant: detectFromList(text, MERCHANT_KEYWORDS),
-    bank: detectFromList(text, BANK_KEYWORDS),
-    direction,
-  };
+function addScore(map: ScoreMap, key: string, score: number) {
+  map[key] = (map[key] || 0) + score;
 }
 
 /* ------------------------------------------
-    FINAL CLASSIFIER
+    FINAL CLASSIFIER (99% version)
 ------------------------------------------- */
-
 export function classifyTransaction(body: string): ClassificationProps | null {
   if (!body) return null;
 
+  const text = normalize(body);
+
+  const amount = extractAmount(text);
+  if (!amount) return null;
+
+  const merchant = detectMerchant(text);
+  const bank = detectBank(text);
+  const direction = detectDirection(text);
+
+  const heur = computeHeuristics(text);
+
+  // Select best party
+  const party = merchant || bank || null;
+
+  // Category
   const memory = loadMemory();
-  const rules = ruleParse(body);
-
-  if (!rules.amount) return null; // No money = ignore
-
-  const heur = computeHeuristics(rules.text);
-  const scores = heur.scores;
-
-  /* Direction override */
-  let direction: Direction = rules.direction;
-  if (direction === "unknown") {
-    const creditScore = scores["credit"] || 0;
-    const debitScore = scores["debit"] || 0;
-
-    direction = creditScore > debitScore ? "credit" : "debit";
-  }
-
-  /* Party detection */
-  const candidates: { party: string; score: number }[] = [];
-
-  if (rules.merchant) candidates.push({ party: rules.merchant, score: 5 });
-  if (rules.bank) candidates.push({ party: rules.bank, score: 3 });
-
-  for (const key in scores) {
-    if (key.startsWith("merchant:")) {
-      candidates.push({
-        party: key.replace("merchant:", ""),
-        score: scores[key],
-      });
-    }
-  }
-
-  candidates.sort((a, b) => b.score - a.score);
-  const party = candidates[0]?.party || null;
-
-  /* Category */
-  let category = "Unknown";
+  let category = "Expense";
 
   if (party && memory[party.toLowerCase()]) {
     category = memory[party.toLowerCase()];
@@ -211,30 +175,27 @@ export function classifyTransaction(body: string): ClassificationProps | null {
     category = heur.tags[0];
   } else if (direction === "credit") {
     category = "Income";
-  } else if (scores["atm"]) {
-    category = "ATM Withdrawal";
-  } else if (scores["upi"]) {
+  } else if (direction === "debit" && heur.scores["upi"]) {
     category = "UPI Payment";
-  } else if (rules.bank) {
+  } else if (heur.scores["atm"]) {
+    category = "ATM Withdrawal";
+  } else if (bank) {
     category = "Bank Debit";
-  } else {
-    category = "Expense";
   }
 
-  /* Confidence score */
-  const evidence =
-    (rules.merchant ? 2 : 0) +
-    (rules.bank ? 1 : 0) +
-    (scores["upi"] || 0) +
-    (scores["atm"] || 0) +
-    (scores["credit"] || 0) +
-    (scores["debit"] || 0);
+  const confidence = Math.min(
+    1,
+    Math.max(
+      0.2,
+      (merchant ? 3 : 0) +
+        (bank ? 2 : 0) +
+        (heur.scores["upi"] || 0) +
+        (heur.scores["atm"] || 0) / 10,
+    ),
+  );
 
-  const confidence = Math.min(1, Math.max(0.15, evidence / 10));
-
-  /* Final object */
   return {
-    amount: rules.amount,
+    amount,
     direction,
     category,
     party,
@@ -243,12 +204,4 @@ export function classifyTransaction(body: string): ClassificationProps | null {
     confidence,
     tags: heur.tags,
   };
-}
-
-/* ------------------------------------------
-    Debug utility
-------------------------------------------- */
-
-export function simulateTransaction(body: string) {
-  console.log("SIM:", classifyTransaction(body));
 }
