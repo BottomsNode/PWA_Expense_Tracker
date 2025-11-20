@@ -32,7 +32,7 @@ function parseAccountMask(text: string) {
 
 function parseMerchant(text: string) {
   const m = text.match(
-    /\b(?:to|at|merchant|payee|vendor|via)[:\s\-]*([A-Za-z0-9\-\s&._]{3,60})/i,
+    /\b(?:to|at|merchant|payee|vendor|via)[:\s-]*([A-Za-z0-9\-\s&._]{3,60})/i,
   );
 
   if (!m) return null;
