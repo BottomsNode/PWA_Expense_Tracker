@@ -24,6 +24,16 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  const restoreExpense = (id: string) => {
+    setExpenses((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, deleted: false } : e)),
+    );
+  };
+
+  const removeExpense = (id: string) => {
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+  };
+
   const clearAll = () => setExpenses([]);
 
   const purgeDeleted = () =>
@@ -39,6 +49,8 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({
         expenses,
         addExpense,
         deleteExpense,
+        restoreExpense,
+        removeExpense,
         clearAll,
         purgeDeleted,
         total,

@@ -4,6 +4,7 @@ import {
   Analysis,
   Daily,
   Home,
+  ManageExpenses,
   Monthly,
   Settings,
 } from "@/pages";
@@ -17,6 +18,7 @@ const App = () => (
       <Route path="/daily" element={<Daily />} />
       <Route path="/monthly" element={<Monthly />} />
       <Route path="/analysis" element={<Analysis />} />
+      <Route path="/manage-expenses" element={<ManageExpenses />} />
       <Route path="/settings" element={<Settings />} />
     </Routes>
   </DashboardLayout>

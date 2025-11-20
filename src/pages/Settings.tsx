@@ -1,4 +1,4 @@
-import { Modal } from "@/base";
+import { Loading, Modal } from "@/base";
 import { ThemeToggle } from "@/components";
 import { useLocationContext } from "@/context";
 import { useInstallPrompt } from "@/hooks";
@@ -90,7 +90,15 @@ export const Settings = () => {
           </div>
 
           {/* LOCATION ACCESS CARD */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-200">
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-200 overflow-hidden">
+            {fetching && (
+              <Loading
+                size="sm"
+                message="Requesting secure location..."
+                label="Requesting location access"
+                className="absolute inset-0 z-10 rounded-xl bg-white/85 dark:bg-gray-900/80 backdrop-blur-sm"
+              />
+            )}
             <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white mb-3">
               <div className="p-1 bg-yellow-100 dark:bg-yellow-900 rounded">
                 <MapPin className="w-5 h-5 text-yellow-500" />

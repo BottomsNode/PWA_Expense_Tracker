@@ -8,3 +8,4 @@ export * from "./useLocationPermission";
 export * from "./useMonthlyStats";
 export * from "./useNativeOrWebLocation";
 export * from "./useNotificationListener";
+export * from "./useMonthlyGoal";

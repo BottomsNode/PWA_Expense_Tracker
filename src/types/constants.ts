@@ -119,3 +119,72 @@ export const KNOWN_BANK_TOKENS = [
 export const NORMALIZED_WHITELIST = KNOWN_BANK_TOKENS.map((t) =>
   t.toUpperCase().replace(/[^A-Z0-9]/g, ""),
 );
+export const UPI_OFFICIAL_HANDLES = new Set([
+  // Major PSPs
+  "upi",
+  "okhdfcbank",
+  "oksbi",
+  "okaxis",
+  "okicici",
+  "okkotak",
+  "ybl",
+  "ibl",
+  "axl",
+  "apl",
+  "paytm",
+  "phonepe",
+  "gpay",
+
+  // Banks (public + private + small finance)
+  "sbi",
+  "hdfcbank",
+  "icici",
+  "axisbank",
+  "kotak",
+  "yesbank",
+  "idfc",
+  "idfcfirst",
+  "indusind",
+  "rbl",
+  "federal",
+  "csb",
+  "karurvysya",
+  "tmb",
+  "uco",
+  "canarabank",
+  "pnb",
+  "bob",
+  "unionbank",
+  "centralbank",
+  "indianbank",
+  "bankofindia",
+  "bankofmaharashtra",
+  "andhrabank",
+  "iob",
+
+  // Payments banks
+  "airtel",
+  "paytm",
+  "jio",
+
+  // Small finance banks
+  "ujjivan",
+  "equitas",
+  "au",
+  "fincare",
+  "suryoday",
+  "utkarsh",
+
+  // FinTech PSP
+  "freecharge",
+  "mobikwik",
+  "bharatpe",
+  "cred",
+  "navi",
+  "fino",
+]);
+export const DAY_IN_MS = 24 * 60 * 60 * 1000;
+export const getTimestamp = (date: string, time?: string) =>
+  new Date(`${date} ${time ?? "00:00"}`).getTime();
+export const sectionCardBase =
+  "rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg p-4 mb-2";

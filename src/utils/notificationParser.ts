@@ -1,51 +1,72 @@
 import { ParsedTxn } from "@/props";
 import { AMOUNT_PATTERNS, CREDIT_KEYWORDS, DEBIT_KEYWORDS } from "@/types";
 import { formatTimestamp } from "./formatTimestamp";
+import { extractUPIID } from "./upiValidator";
 
-function normalizeNumberString(s: string) {
+function sanitizeRaw(text: string): string {
+  return text
+    .replace(/https?:\/\/\S+/gi, "") // remove URLs
+    .replace(/com\.[a-z0-9._-]+/gi, "") // remove package names
+    .replace(/[^\x20-\x7E]/g, "") // remove weird unicode
+    .replace(/[\s]{2,}/g, " ") // collapse double spaces
+    .trim();
+}
+
+function isSuspicious(text: string): boolean {
+  const blacklist = /(fraud|alert|warning|blocked|secure|complaint|scam)/i;
+  return blacklist.test(text);
+}
+
+function normalizeNumber(s: string) {
   return s.replace(/[^\d.]/g, "");
 }
 
-function parseAmountFromText(text: string): number | null {
+function parseAmount(text: string): number | null {
   for (const re of AMOUNT_PATTERNS) {
     re.lastIndex = 0;
     let m;
     while ((m = re.exec(text)) !== null) {
       const raw = m[1] ?? m[0];
-      const cleaned = normalizeNumberString(raw);
+      const cleaned = normalizeNumber(raw);
       if (!cleaned) continue;
 
-      const n = Number(cleaned);
-      if (!Number.isNaN(n) && Number.isFinite(n)) return n;
+      const num = Number(cleaned);
+      if (num > 0 && num < 1_00_00_000) return num; // safe cap
     }
   }
   return null;
 }
 
-function parseAccountMask(text: string) {
-  const m =
-    text.match(/\bA\/c(?:ount)?\s*X?(\d{2,6})\b/i) ||
-    text.match(/\bX(\d{3,6})\b/);
+function parseMerchant(text: string): string | null {
+  // 1) UPI ID (highest priority)
+  const upi = extractUPIID(text);
+  if (upi) return upi;
 
-  return m ? `****${m[1]}` : null;
-}
-
-function parseMerchant(text: string) {
+  // 2) Merchant keywords
   const m = text.match(
-    /\b(?:to|at|merchant|payee|vendor|via)[:\s-]*([A-Za-z0-9\-\s&._]{3,60})/i,
+    /\b(?:to|at|payee|merchant|vendor|via)[: ]+([A-Za-z][A-Za-z0-9 ._&-]{2,40})/i,
   );
-
   if (!m) return null;
 
-  return m[1].trim().replace(/\s{2,}/g, " ");
+  const merchant = m[1].trim();
+
+  // reject garbage
+  if (/com\./i.test(merchant)) return null;
+  if (/https?:\/\//i.test(merchant)) return null;
+  if (!/[a-z]/i.test(merchant)) return null;
+
+  return merchant;
+}
+
+function parseAccountMask(text: string) {
+  const m = text.match(/\b(?:XX|x|X)(\d{3,6})\b/);
+  return m ? `****${m[1]}` : null;
 }
 
 function detectDirection(text: string, amount?: number | null) {
   if (CREDIT_KEYWORDS.test(text)) return "credit";
   if (DEBIT_KEYWORDS.test(text)) return "debit";
-
   if (amount && /debited|deducted/i.test(text)) return "debit";
-
   return "unknown";
 }
 
@@ -55,14 +76,10 @@ function confidenceScore(parts: {
   direction?: string;
 }) {
   let score = 0;
-
   if (parts.amount != null) score += 50;
-  if (parts.direction && parts.direction !== "unknown") score += 20;
-  if (parts.merchant) score += 15;
-
-  if (parts.amount && parts.amount > 1e9) score -= 30;
-
-  return Math.max(0, Math.min(100, score));
+  if (parts.merchant) score += 30;
+  if (parts.direction !== "unknown") score += 20;
+  return Math.max(10, Math.min(100, score));
 }
 
 function makeId(raw: string, sender?: string | null) {
@@ -80,7 +97,12 @@ export function parseNotification(
   rawText: string,
   sender?: string | null,
   ts?: Date | number | null,
-): ParsedTxn {
+): ParsedTxn | null {
+  const text = sanitizeRaw(rawText);
+
+  if (!text) return null;
+  if (isSuspicious(text)) return null;
+
   const dateObj =
     ts instanceof Date
       ? ts
@@ -89,26 +111,29 @@ export function parseNotification(
         : new Date();
   const formatted = formatTimestamp(dateObj);
 
-  const amount = parseAmountFromText(rawText);
-  const accountMask = parseAccountMask(rawText);
-  const merchant = parseMerchant(rawText);
-  const direction = detectDirection(rawText, amount);
-  const confidence = confidenceScore({ amount, merchant, direction });
+  const amount = parseAmount(text);
+  const merchant = parseMerchant(text);
+  const direction = detectDirection(text, amount);
+  const accountMask = parseAccountMask(text);
 
-  const id = makeId(rawText, sender ?? null);
-  const safeAmount = amount && amount > 1e12 ? null : amount;
+  // must have at least amount or merchant or direction
+  if (!amount && !merchant && direction === "unknown") {
+    return null;
+  }
+
+  const id = makeId(text, sender ?? null);
 
   return {
     id,
     raw: rawText,
     sender: sender ?? null,
-    amount: safeAmount ?? null,
-    currency: safeAmount != null ? "INR" : null,
+    amount: amount ?? null,
+    currency: amount ? "INR" : null,
     direction,
-    merchant: merchant ?? null,
-    accountMask: accountMask ?? null,
+    merchant,
+    accountMask,
     timestamp: formatted,
     createdAt: dateObj.getTime(),
-    confidence,
+    confidence: confidenceScore({ amount, merchant, direction }),
   };
 }

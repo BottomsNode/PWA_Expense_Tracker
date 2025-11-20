@@ -16,3 +16,4 @@ export * from "./NotificationDataProps";
 export * from "./DetectedReviewProps";
 export * from "./ParsedTxn";
 export * from "./DraftStateProps";
+export * from "./LoadingProps";

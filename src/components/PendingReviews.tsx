@@ -109,7 +109,8 @@ export const PendingReviews: React.FC = () => {
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5 w-full max-w-2xl mx-auto px-3 md:px-0">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           Pending Reviews
@@ -119,7 +120,8 @@ export const PendingReviews: React.FC = () => {
         </span>
       </div>
 
-      <div className="space-y-3">
+      {/* Review Cards */}
+      <div className="space-y-4">
         {displayList.map((txn) => (
           <DetectedReview
             key={txn.id}
@@ -131,19 +133,22 @@ export const PendingReviews: React.FC = () => {
         ))}
       </div>
 
+      {/* Error */}
       {error && (
         <div className="text-sm text-red-500 bg-red-100 dark:bg-red-900/20 px-4 py-2 rounded-lg">
           {error}
         </div>
       )}
 
+      {/* Edit Modal */}
       {draft && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl p-5 space-y-4 shadow-2xl border border-gray-200 dark:border-gray-700">
+          <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl p-5 space-y-4 shadow-xl border border-gray-200 dark:border-gray-700 animate-fadeIn">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Edit & Approve
             </h3>
 
+            {/* Title */}
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Title
               <input
@@ -153,6 +158,7 @@ export const PendingReviews: React.FC = () => {
               />
             </label>
 
+            {/* Amount */}
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Amount (₹)
               <input
@@ -165,6 +171,7 @@ export const PendingReviews: React.FC = () => {
               />
             </label>
 
+            {/* Notes */}
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Notes
               <textarea
@@ -175,7 +182,8 @@ export const PendingReviews: React.FC = () => {
               />
             </label>
 
-            <div className="flex justify-end gap-3 pt-2">
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-3">
               <button
                 className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-800"
                 onClick={() => setDraft(null)}

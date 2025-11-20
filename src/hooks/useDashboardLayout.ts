@@ -19,6 +19,7 @@ export const useDashboardLayout = () => {
   const navItems = [
     { label: "Overview", to: "/" },
     { label: "Add Expense", to: "/add-expense" },
+    { label: "Manage Expenses", to: "/manage-expenses" },
     { label: "Daily Expense", to: "/daily" },
     { label: "Monthly Expense", to: "/monthly" },
     { label: "Analysis", to: "/analysis" },

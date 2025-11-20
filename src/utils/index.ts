@@ -6,3 +6,4 @@ export * from "./pendingStore";
 export * from "./useNotificationReview";
 export * from "./senderWhitelist";
 export * from "./formatTimestamp";
+export * from "./upiValidator";

@@ -39,11 +39,10 @@ export function useNotificationListener() {
 
             const timestamp = data?.postTime ?? Date.now();
             const parsed = parseNotification(text, sender, timestamp);
-
+            if (!parsed) return;
             if (isDuplicate(parsed.id)) {
               return;
             }
-
             pushPending(parsed);
           } catch (err) {
             console.error("Notification parsing error:", err);
