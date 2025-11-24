@@ -98,7 +98,7 @@ jobs:
       - run: bun run build
 
       # Upload built web assets for Android job
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: web-build
           path: dist/**
@@ -173,13 +173,13 @@ jobs:
           2>&1 | tee gradle-build.log
 
       # Upload build logs for debugging if something fails
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: gradle-logs
           path: android/gradle-build.log
 
       # Upload **signed** APK as GitHub artifact
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: android-apk
           path: android/app/build/outputs/apk/release/app-release.apk
