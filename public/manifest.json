@@ -6,12 +6,17 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
+  "categories": ["finance", "productivity"],
+  "lang": "en",
+  "dir": "ltr",
+
   "icons": [
     {
-      "src": "/pwa-icon-192.png",
+      "src": "/app-icon.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
@@ -23,6 +28,15 @@
       "purpose": "any maskable"
     }
   ],
-  "lang": "en",
-  "dir": "ltr"
+
+  "shortcuts": [
+    {
+      "name": "Add Expense",
+      "short_name": "Add",
+      "description": "Quickly add a new expense",
+      "url": "/add"
+    }
+  ],
+
+  "prefer_related_applications": false
 }

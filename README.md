@@ -1,123 +1,31 @@
 # 💰 PWA Expense Tracker
 
-### Live Demo: [expense-tracker-app](https://pwa-expense-tracker.vercel.app)
+### **Live Demo:**  
+➡️ https://pwa-expense-tracker.vercel.app
 
-A modern **Progressive Web App (PWA)** built with **React, TypeScript, and Vite**, featuring offline capability, mobile install support, and full integration with **Capacitor** for native Android builds.
+A modern offline-first **PWA Expense Tracker** built with **React, TypeScript, Vite**, and packaged for mobile using **Capacitor**. Installable on both **web** and **Android**, fast, reliable, and designed with clean architecture.
 
 ---
 
 ## 🚀 Features
 
-- ✅ **Installable PWA** (Add to Home Screen + Native Android Build)
-- ⚡ **Offline-first** architecture (Service Worker + IndexedDB)
-- 💰 Add, Edit, and Delete expenses with ease
-- 📅 Monthly / Daily summaries & analytics
-- 📍 **Location tagging** for each expense
-- 📊 Dashboard insights & charts
-- 🌓 **Theme toggle** (light/dark)
-- 📱 Fully responsive layout
-- ⚙️ Built with modern hooks & context architecture
-- 🧠 Modular TypeScript-based code organization
+- 📱 **Installable PWA** (Web + Native Android APK)  
+- ⚡ **Offline-first** using Service Worker & IndexedDB  
+- 💸 Add / Edit / Delete expenses  
+- 📅 Monthly + Daily insights  
+- 📍 Location tagging per expense  
+- 📊 Dashboard with charts & analytics  
+- 🌓 Light / Dark theme  
+- 🧩 Modular, strongly typed codebase  
+- 🔌 Native bridge via Capacitor  
 
 ---
 
-## 🧠 Tech Stack
+## 🚀 Quick Start
 
-| Layer | Tools |
-|-------|--------|
-| Framework | React (TypeScript + Vite) |
-| Styling | TailwindCSS, Shadcn UI |
-| Icons | Lucide Icons |
-| State | React Context + Custom Hooks |
-| Native Bridge | Capacitor |
-| Charts | Recharts |
-| Hosting | Vercel |
-| Code Quality | ESLint + Prettier |
-| Build Tool | Vite + TypeScript Compiler |
-
----
-
-## 🗂️ Project Structure
-
-```
-application/
-└─ expense-tracker.apk      # Native Android build
-
-src/
-├─ base/
-│  ├─ InputField.tsx
-│  ├─ TextAreaField.tsx
-│  ├─ Modal.tsx
-│  ├─ Popup.tsx
-│  └─ index.ts
-│
-├─ components/
-│  ├─ AddExpense.tsx
-│  ├─ ChartCard.tsx
-│  ├─ ExpenseList.tsx
-│  ├─ MonthlyCalendar.tsx
-│  ├─ SummaryCard.tsx
-│  ├─ ThemeToggle.tsx
-│  ├─ InstallButton.tsx
-│  └─ index.ts
-│
-├─ context/
-│  ├─ expenseContext.ts
-│  ├─ LocationContext.ts
-│  ├─ useThemeContext.ts
-│  └─ index.ts
-│
-├─ hooks/
-│  ├─ useAddExpense.ts
-│  ├─ useDashboardMetrics.ts
-│  ├─ useMonthlyStats.ts
-│  ├─ useServiceWorker.ts
-│  ├─ useLocationPermission.ts
-│  ├─ useNativeOrWebLocation.ts
-│  ├─ useInstallPrompt.ts
-│  └─ index.ts
-│
-├─ layout/
-│  ├─ DashboardLayout.tsx
-│  └─ index.ts
-│
-├─ pages/
-│  ├─ Home.tsx
-│  ├─ Daily.tsx
-│  ├─ Monthly.tsx
-│  ├─ Analysis.tsx
-│  ├─ AddExpensePage.tsx
-│  ├─ Settings.tsx
-│  └─ index.ts
-│
-├─ props/
-│  ├─ *.ts / *.tsx
-│  └─ index.ts
-│
-├─ providers/
-│  ├─ ExpenseProvider.tsx
-│  ├─ LocationProvider.tsx
-│  ├─ ThemeProvider.tsx
-│  └─ index.ts
-│
-├─ types/
-│  ├─ Expense.ts
-│  ├─ ExpenseContextType.ts
-│  ├─ BeforeInstallPromptEvent.ts
-│  ├─ ThemeContextType.ts
-│  ├─ constants.ts
-│  ├─ global.d.ts
-│  └─ index.ts
-│
-├─ utils/
-│  ├─ number.ts
-│  └─ index.ts
-│
-├─ App.tsx
-├─ RootApp.tsx
-├─ main.tsx
-├─ index.css
-└─ vite-env.d.ts
+```bash
+yarn install
+yarn dev
 ```
 
 ---
@@ -125,7 +33,7 @@ src/
 ## ⚙️ Scripts
 
 ```json
-"scripts": {
+{
   "dev": "vite",
   "build": "tsc -b && vite build",
   "lint": "eslint .",
@@ -139,132 +47,131 @@ src/
 
 ---
 
-## 🧩 Command Cheat Sheet
+## 🗂️ Project Structure
 
-### 🔹 Development
-```bash
-yarn dev
-# or npm run dev
+<details>
+<summary><strong>Click to expand project tree</strong></summary>
+
+```
+application/
+└─ expense-tracker.apk
+
+src/
+├─ base/
+├─ components/
+├─ context/
+├─ hooks/
+├─ layout/
+├─ pages/
+├─ props/
+├─ providers/
+├─ types/
+├─ utils/
+├─ App.tsx
+├─ RootApp.tsx
+├─ main.tsx
+└─ index.css
 ```
 
-### 🔹 Build for Production
-```bash
-yarn build
-```
-
-### 🔹 Preview Build
-```bash
-yarn preview
-```
-
-### 🔹 Lint Code
-```bash
-yarn lint
-```
-
-### 🔹 Build Android App (Capacitor)
-```bash
-yarn cap:build
-# or step-by-step:
-# yarn build && yarn cap:copy && yarn cap:sync
-```
-
-### 🔹 Open Android Studio
-```bash
-yarn cap:open
-```
+</details>
 
 ---
 
 ## 📱 Android Build (Capacitor)
 
-The native Android build of the app is located in the **`application/`** directory:
+<details>
+<summary><strong>Click to expand Android build instructions</strong></summary>
+
+APK output location:
 
 ```
-application/
-└─ expense-tracker.apk
+application/expense-tracker.apk
 ```
 
-### 🔸 To install manually:
+Manual installation:
 
-1. Transfer `expense-tracker.apk` to your Android device.
-2. Enable **“Install unknown apps”** for your file manager or browser.
-3. Tap the file to install it.
-4. Once installed, launch **Expense Tracker** like any other app — it works offline.
+1. Transfer APK to Android device  
+2. Enable *Install Unknown Apps*  
+3. Install  
+4. Use offline immediately  
 
-> 💡 This APK was generated using **Capacitor**, synced via `npx cap sync`, and built in **Android Studio**.
+The APK is generated using:
+
+```bash
+yarn cap:build
+```
+
+</details>
 
 ---
 
-## 📦 Build & Deploy Steps
+## 📦 Build & Deploy
 
-1. Clean and check code:
-   ```bash
-   yarn lint
-   ```
-2. Build web app:
-   ```bash
-   yarn build
-   ```
-3. Copy build to Capacitor:
-   ```bash
-   yarn cap:copy
-   ```
-4. Sync native Android project:
-   ```bash
-   yarn cap:sync
-   ```
-5. Open Android Studio for final build:
-   ```bash
-   yarn cap:open
-   ```
-6. Build and export `.apk` from **Build > Build Bundle(s) / APK(s)** in Android Studio.
-
-7. The final APK will appear under `/application/expense-tracker.apk`.
+```bash
+yarn lint
+yarn build
+yarn cap:copy
+yarn cap:sync
+yarn cap:open      # open Android Studio
+```
 
 ---
 
 ## 🌍 Environment Variables
 
-Create `.env` in project root:
+Create `.env`:
 
 ```
-VITE_API_BASE_URL=https://api.example.com
+VITE_API_BASE_URL=...
 VITE_FEATURE_FLAG_SYNC=false
 ```
 
-> **Note:** All Vite environment variables must start with `VITE_`.
+> All Vite environment variables must begin with **VITE_**.
 
 ---
 
-## 🧱 PWA Configuration
+## 🧠 Tech Stack
 
-Located in `/public/manifest.webmanifest`.  
-Ensure the manifest and icons are correctly defined for installability.  
-Run Lighthouse audit — aim for **90+ PWA score**.
+| Layer | Tools |
+|-------|--------|
+| Framework | React + TypeScript + Vite |
+| Styling | TailwindCSS + Shadcn UI |
+| Icons | Lucide Icons |
+| State | React Context + Custom Hooks |
+| Native | Capacitor |
+| Charts | Recharts |
+| Hosting | Vercel |
+| Code Quality | ESLint + Prettier |
 
 ---
 
-## 🔐 Security
+## 📘 Developer Docs
 
-- Do **not** store sensitive data in localStorage.
-- Use **short-lived access tokens** and **refresh tokens** securely.
-- Always serve over **HTTPS**.
+See `.github/docs/`:
+
+- CI/CD Pipeline  
+- Android Build  
+- PWA Setup  
+- Branch Cleanup  
+- Security Checks  
+
+---
+
+## 🔐 Security Notes
+
+- Avoid storing sensitive data in localStorage  
+- Use secure tokens  
+- Always run under HTTPS  
 
 ---
 
 ## 🪪 License
 
-This project is licensed under the **MIT License** — free for personal or commercial use.
+**MIT License**
 
 ---
 
 ## 👤 Author
 
-**Developed by:** Bottoms'Node  
-**Project:** PWA Expense Tracker  
-**Live URL:** [https://pwa-expense-tracker.vercel.app](https://pwa-expense-tracker.vercel.app)
-
----
-
-**Made with ❤️ by Bottoms'Node — Powered by React, TypeScript & Capacitor**
+**Bottoms'Node**  
+Live URL: https://pwa-expense-tracker.vercel.app

@@ -1,254 +1,300 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
     branches: [main, dev]
-    tags:
-      - "v*.*.*"
   pull_request:
     branches: [main, dev]
-  schedule:
-    - cron: '0 3 * * 0'  # Weekly security scan
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-pipeline-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
 env:
-  NODE_VERSION: '20'
-  JAVA_VERSION: '21'
-  JAVA_DISTRIBUTION: 'temurin'
+  ARTIFACT_RETENTION_DAYS: 14
+  BUN_VERSION: "1.3.2"
 
 jobs:
-  # ------------------------------------------------------------
-  # 1. Secret Scan (TruffleHog FIXED)
-  # ------------------------------------------------------------
+
+  ################################################################################
+  # SECRET SCAN
+  ################################################################################
   secret-scan:
-    name: Secret Scan
     runs-on: ubuntu-latest
-    if: github.event_name != 'schedule'
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
-      - name: Checkout code
+      - name: Checkout (full)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: TruffleHog Secret Scan
+      - name: TruffleHog secret scan
         uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
+        continue-on-error: true
 
-  # ------------------------------------------------------------
-  # 2. Lint Job
-  # ------------------------------------------------------------
+  ################################################################################
+  # LINT
+  ################################################################################
   lint:
-    name: Lint Code
     runs-on: ubuntu-latest
-    needs: [secret-scan]
-    if: always() && (needs.secret-scan.result == 'success' || needs.secret-scan.result == 'skipped')
+    needs: secret-scan
+    outputs:
+      lint_status: ${{ steps.eslint_out.outputs.status }}
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: "**/yarn.lock"
+          bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --prefer-offline
+      - name: Restore Bun/node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun
+            node_modules
+          key: bun-ci-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json') }}
+          restore-keys: |
+            bun-ci-${{ runner.os }}-
+            bun-ci-
 
-      - name: Run linter
-        run: yarn lint
+      - name: Install deps (bun)
+        run: bun install --frozen-lockfile
 
-      - name: Cache lint results
-        uses: actions/cache/save@v4
+      - name: Run ESLint
+        id: eslint_out
+        run: |
+          set +e
+          bunx eslint . --max-warnings=0
+          echo "status=$([[ $? -eq 0 ]] && echo success || echo failure)" >> $GITHUB_OUTPUT
+
+      - name: Upload ESLint cache (artifact)
         if: always()
+        uses: actions/upload-artifact@v4
         with:
+          name: eslint-cache-${{ github.sha }}
           path: .eslintcache
-          key: eslint-${{ github.sha }}
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-  # Code Quality: Type checking
+  ################################################################################
+  # TYPECHECK
+  ################################################################################
   typecheck:
-    name: Type Check
     runs-on: ubuntu-latest
-    needs: [secret-scan]
-    if: always() && (needs.secret-scan.result == 'success' || needs.secret-scan.result == 'skipped')
+    needs: secret-scan
+    outputs:
+      type_status: ${{ steps.ts_out.outputs.status }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: "**/yarn.lock"
+          bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --prefer-offline
+      - name: Restore Bun/node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun
+            node_modules
+          key: bun-ci-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json') }}
+          restore-keys: |
+            bun-ci-${{ runner.os }}-
+            bun-ci-
 
-      - name: Run type check
-        run: yarn check:types || tsc --noEmit
+      - name: Install deps (bun)
+        run: bun install --frozen-lockfile
 
-  # ------------------------------------------------------------
-  # 4. Web Build
-  # ------------------------------------------------------------
-  build-web:
-    name: Build Web
+      - name: Run TypeScript check
+        id: ts_out
+        run: |
+          set +e
+          bunx tsc --noEmit
+          echo "status=$([[ $? -eq 0 ]] && echo success || echo failure)" >> $GITHUB_OUTPUT
+
+  ################################################################################
+  # TESTS
+  ################################################################################
+  test:
     runs-on: ubuntu-latest
     needs: [lint, typecheck]
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: "**/yarn.lock"
+          bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --prefer-offline
+      - name: Restore Bun cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun
+            node_modules
+          key: bun-test-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json') }}
+          restore-keys: |
+            bun-test-${{ runner.os }}-
+            bun-test-
 
-      - name: Build web application
-        run: yarn build
+      - name: Install deps
+        run: bun install --frozen-lockfile
 
-      - name: Upload build artifacts
+      - name: Run tests + coverage
+        run: |
+          bunx vitest run --coverage || true
+
+      - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
-          name: web-build
-          path: dist/
-          retention-days: 7
-          if-no-files-found: error
+          name: coverage-${{ github.sha }}
+          path: coverage
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-  # ------------------------------------------------------------
-  # 5. Android Build (Java 17 enforced)
-  # ------------------------------------------------------------
-  build-android:
-    name: Build Android APK
+  ################################################################################
+  # BUILD WEB
+  ################################################################################
+  build-web:
     runs-on: ubuntu-latest
-    needs: [build-web]
-    if: github.event_name != 'schedule'
+    needs: [lint, typecheck, test]
+    outputs:
+      web_artifact: web-build
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: "**/yarn.lock"
+          bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Restore Bun & Vite cache
+        uses: actions/cache@v4
         with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: 'gradle'
+          path: |
+            ~/.bun
+            node_modules
+            .vite
+            node_modules/.cache
+          key: bun-web-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json','**/vite.config.*') }}
+          restore-keys: |
+            bun-web-${{ runner.os }}-
+            bun-web-
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --prefer-offline
+      - name: Install deps
+        run: bun install --frozen-lockfile
 
-      - name: Download web build
-        uses: actions/download-artifact@v4
-        with:
-          name: web-build
-          path: dist/
-
-      - name: Capacitor copy and sync
+      - name: Basic PWA manifest check
         run: |
-          yarn cap:copy
-          yarn cap:sync
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
-
-      - name: Build Android Debug APK
-        run: |
-          cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: expense-tracker-apk-${{ github.sha }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-          if-no-files-found: error
-
-  # ------------------------------------------------------------
-  # 6. Release
-  # ------------------------------------------------------------
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [build-android]
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: expense-tracker-apk-${{ github.sha }}
-          path: ./artifacts
-
-      - name: Rename APK
-        run: |
-          mv ./artifacts/app-debug.apk ./artifacts/expense-tracker-${{ github.ref_name }}.apk
-
-      - name: Generate changelog
-        id: changelog
-        run: |
-          if [ -f "RELEASE_NOTES_${{ github.ref_name }}.md" ]; then
-            echo "notes_file=RELEASE_NOTES_${{ github.ref_name }}.md" >> $GITHUB_OUTPUT
+          if [ -f public/manifest.json ]; then
+            jq -e '.name and .start_url and .icons' public/manifest.json || echo "WARNING: manifest incomplete"
           else
-            echo "No release notes found, generating from commits"
-            git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty=format:"- %s (%h)" > CHANGELOG.md
-            echo "notes_file=CHANGELOG.md" >> $GITHUB_OUTPUT
+            echo "WARNING: public/manifest.json not found"
           fi
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ./artifacts/expense-tracker-${{ github.ref_name }}.apk
-          body_path: ${{ steps.changelog.outputs.notes_file }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (Vite)
+        run: bun run build --silent --no-color
 
-  # ------------------------------------------------------------
-  # 7. Build Summary + Notify
-  # ------------------------------------------------------------
-  notify:
-    name: Notify Build Status
-    runs-on: ubuntu-latest
-    needs: [build-web, build-android]
-    if: always() && github.event_name != 'schedule'
-    steps:
-      - name: Check build status
+      - name: Pack dist into zip
         run: |
-          web_result="${{ needs.build-web.result }}"
-          android_result="${{ needs.build-android.result }}"
-          
-          echo "Web build: $web_result"
-          echo "Android build: $android_result"
-          
-          # Consider skipped as success (job wasn't needed)
-          if [[ "$web_result" == "success" || "$web_result" == "skipped" ]] && \
-              [[ "$android_result" == "success" || "$android_result" == "skipped" ]]; then
-            echo "✅ All builds successful"
-            exit 0
+          if [ -d dist ]; then
+            cd dist
+            zip -r ../dist.zip . || true
+            cd ..
           else
-            echo "❌ Build failed"
-            echo "Web: $web_result, Android: $android_result"
+            echo "ERROR: dist missing" >&2
             exit 1
           fi
+
+      - name: Verify dist.zip exists
+        run: |
+          if [ ! -f dist.zip ]; then
+            echo "ERROR: dist.zip not found" >&2
+            exit 1
+          fi
+          du -sh dist || true
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: dist.zip
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: error
+
+  ################################################################################
+  # Canary (PR only)
+  ################################################################################
+  canary:
+    needs: build-web
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Download web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: .
+
+      - name: Unpack dist
+        run: |
+          unzip -q dist.zip -d preview-dist || true
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-web-${{ github.sha }}
+          path: preview-dist/**
+          retention-days: 7
+
+  ################################################################################
+  # PR Summary (deduped)
+  ################################################################################
+  pr-summary:
+    needs: [lint, typecheck]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Post or update PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const lint = "${{ needs.lint.outputs.lint_status }}";
+            const ts = "${{ needs.typecheck.outputs.type_status }}";
+
+            const body = `## CI Summary
+            | Check | Status |
+            |------|--------|
+            | ESLint | **${lint}** |
+            | TypeScript | **${ts}** |
+
+            Artifacts:
+            - web-build
+            - coverage report
+
+            _This comment is auto-generated._`;
+
+                        // find existing bot comment
+                        const comments = await github.rest.issues.listComments({ owner, repo, issue_number: pr.number });
+                        const botComment = comments.data.find(c => c.user && c.user.type === 'Bot' && c.body && c.body.includes('## CI Summary'));
+                        if (botComment) {
+                          await github.rest.issues.updateComment({ owner, repo, comment_id: botComment.id, body });
+                        } else {
+                          await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+                        }

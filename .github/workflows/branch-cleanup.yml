@@ -4,89 +4,278 @@ on:
   pull_request:
     types: [closed]
   schedule:
-    - cron: '0 0 * * 0'  # Weekly cleanup on Sundays at midnight
+    - cron: "0 0 * * 0" # every Sunday at midnight (UTC)
   workflow_dispatch:
+    inputs:
+      branch_prefix:
+        description: 'Branch prefix to target (e.g. dependabot/)'
+        required: false
+        default: 'dependabot/'
+      stale_days:
+        description: 'Age (in days) after which a branch is considered stale'
+        required: false
+        default: '30'
+      dry_run:
+        description: 'If true, only list branches that would be deleted'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+env:
+  FORCE_COLOR: "1"
 
 jobs:
   cleanup:
-    name: Delete Merged & Stale Branches
+    name: Delete merged & stale branches (safe)
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository (full)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure Git
+      - name: Configure git user
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Delete merged Dependabot branches
+      - name: Resolve inputs & defaults
+        id: inputs
         run: |
-          echo "🧹 Cleaning up merged branches..."
-          
-          # Fetch all branches and prune deleted remote branches
+          echo "branch_prefix=${{ github.event.inputs.branch_prefix || 'dependabot/' }}" >> $GITHUB_OUTPUT
+          echo "stale_days=${{ github.event.inputs.stale_days || '30' }}" >> $GITHUB_OUTPUT
+          echo "dry_run=${{ github.event.inputs.dry_run || 'false' }}" >> $GITHUB_OUTPUT
+          echo "now_utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_OUTPUT
+
+      - name: Detect default branch via GitHub API
+        id: default_branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const repo = context.repo;
+            const { data } = await github.rest.repos.get({
+              owner: repo.owner,
+              repo: repo.repo,
+            });
+            return data.default_branch;
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch remote refs
+        run: |
           git fetch --all --prune
-          
-          # Get all merged dependabot branches
-          merged_branches=$(git branch -r --merged origin/main | grep 'dependabot/' | sed 's|origin/||' || echo "")
-          
-          if [ -z "$merged_branches" ]; then
-            echo "No merged Dependabot branches found."
+
+      - name: Build list of remote branches (matching prefix)
+        id: list_branches
+        run: |
+          PREFIX="${{ steps.inputs.outputs.branch_prefix }}"
+          echo "Looking for branches with prefix: $PREFIX"
+          # list remote branch names without "origin/"
+          git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | sed 's|origin/||' > all-remote-branches.txt
+          grep "^${PREFIX}" all-remote-branches.txt || true
+          grep "^${PREFIX}" all-remote-branches.txt > target-branches.txt || true
+          echo "target_file=target-branches.txt" >> $GITHUB_OUTPUT
+          echo "target_count=$(wc -l < target-branches.txt || echo 0)" >> $GITHUB_OUTPUT
+
+      - name: Identify merged branches (local git check)
+        id: merged
+        run: |
+          DEFAULT=${{ steps.default_branch.outputs.result }}
+          PREFIX="${{ steps.inputs.outputs.branch_prefix }}"
+          MERGED_FILE=merged-branches.txt
+          > $MERGED_FILE
+          echo "Checking branches merged into origin/$DEFAULT"
+          # get remote branches merged into default
+          git branch -r --merged origin/$DEFAULT | sed 's|origin/||' | grep "^${PREFIX}" | sort -u > maybe-merged.txt || true
+          if [ -s maybe-merged.txt ]; then
+            echo "Found merged candidates:"
+            cat maybe-merged.txt
+            # verify each with GitHub API to ensure it's fully merged (defensive)
+            while read -r br; do
+              if [ -z "$br" ]; then continue; fi
+              # check if ref still exists remotely
+              if git show-ref --verify --quiet "refs/remotes/origin/$br"; then
+                echo "$br" >> $MERGED_FILE
+              fi
+            done < maybe-merged.txt
+          fi
+          echo "merged_file=$MERGED_FILE" >> $GITHUB_OUTPUT
+          echo "merged_count=$(wc -l < $MERGED_FILE || echo 0)" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Identify stale branches via GitHub API
+        id: stale
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const repo = context.repo;
+            const prefix = "${{ steps.inputs.outputs.branch_prefix }}";
+            const staleDays = parseInt("${{ steps.inputs.outputs.stale_days }}", 10);
+            const now = Date.now();
+            const cutoff = now - (staleDays * 24 * 60 * 60 * 1000);
+            const branchesResp = await github.rest.repos.listBranches({
+              owner: repo.owner,
+              repo: repo.repo,
+              per_page: 100
+            });
+
+            const targets = branchesResp.data
+              .map(b => b.name)
+              .filter(name => name.startsWith(prefix));
+
+            const staleBranches = [];
+            for (const name of targets) {
+              // get latest commit info for the branch
+              try {
+                const commitResp = await github.rest.repos.getCommit({
+                  owner: repo.owner,
+                  repo: repo.repo,
+                  ref: name
+                });
+                const commitDate = new Date(commitResp.data.commit.committer.date).getTime();
+                if (commitDate < cutoff) {
+                  const daysOld = Math.floor((now - commitDate) / (24*60*60*1000));
+                  staleBranches.push({ name, daysOld });
+                }
+              } catch (err) {
+                // if branch missing or API error, skip
+                core.warning(`Skipping ${name}: ${err.message}`);
+              }
+            }
+
+            // write stale list to file for artifact later
+            const fs = require('fs');
+            const out = staleBranches.map(b => `${b.name} (${b.daysOld} days)`).join("\n");
+            fs.writeFileSync('stale-branches.txt', out);
+            return {
+              stale_count: staleBranches.length,
+              stale_file: 'stale-branches.txt'
+            };
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show candidates (debug)
+        if: always()
+        run: |
+          echo "== Target branches =="
+          cat target-branches.txt || echo "(none)"
+          echo ""
+          echo "== Merged (confirmed) =="
+          cat merged-branches.txt || echo "(none)"
+          echo ""
+          echo "== Stale (from API) =="
+          cat stale-branches.txt || echo "(none)"
+
+      - name: Delete merged branches (safe delete via REST API)
+        id: delete_merged
+        run: |
+          DRY="${{ steps.inputs.outputs.dry_run }}"
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name || github.repo }}"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          MERGED_FILE=merged-branches.txt
+          > deleted-merged.txt
+          if [ -s "$MERGED_FILE" ]; then
+            while read -r branch; do
+              if [ -z "$branch" ]; then continue; fi
+              echo "Processing merged branch: $branch"
+              if [ "$DRY" = "true" ]; then
+                echo "[DRY RUN] would delete $branch" >> deleted-merged.txt
+                continue
+              fi
+              # delete ref via API (this respects protection)
+              RESP=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+                -H "Authorization: token $TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$OWNER/$REPO/git/refs/heads/$branch")
+              if [ "$RESP" -eq 204 ]; then
+                echo "Deleted $branch" >> deleted-merged.txt
+              else
+                echo "Failed to delete $branch (http $RESP)" >> deleted-merged.txt
+              fi
+            done < "$MERGED_FILE"
           else
-            echo "Found merged branches:"
-            echo "$merged_branches"
-            
-            # Delete each merged branch
-            echo "$merged_branches" | while read -r branch; do
-              if [ -n "$branch" ]; then
-                echo "Deleting merged branch: $branch"
-                git push origin --delete "$branch" 2>/dev/null || echo "Branch $branch already deleted or not found"
+            echo "No merged branches to delete" > deleted-merged.txt
+          fi
+          echo "deleted_merged_file=deleted-merged.txt" >> $GITHUB_OUTPUT
+          echo "deleted_merged_count=$(wc -l < deleted-merged.txt || echo 0)" >> $GITHUB_OUTPUT
+
+      - name: Delete stale branches (safe delete via REST API)
+        id: delete_stale
+        run: |
+          DRY="${{ steps.inputs.outputs.dry_run }}"
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name || github.repo }}"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          STALE_FILE=stale-branches.txt
+          > deleted-stale.txt
+          if [ -s "$STALE_FILE" ]; then
+            cut -d' ' -f1 "$STALE_FILE" | while read -r branch; do
+              if [ -z "$branch" ]; then continue; fi
+              echo "Processing stale branch: $branch"
+              if [ "$DRY" = "true" ]; then
+                echo "[DRY RUN] would delete $branch" >> deleted-stale.txt
+                continue
+              fi
+              RESP=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+                -H "Authorization: token $TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$OWNER/$REPO/git/refs/heads/$branch")
+              if [ "$RESP" -eq 204 ]; then
+                echo "Deleted $branch" >> deleted-stale.txt
+              else
+                echo "Failed to delete $branch (http $RESP)" >> deleted-stale.txt
               fi
             done
+          else
+            echo "No stale branches to delete" > deleted-stale.txt
           fi
-          
-          echo "✅ Merged branches cleanup complete!"
+          echo "deleted_stale_file=deleted-stale.txt" >> $GITHUB_OUTPUT
+          echo "deleted_stale_count=$(wc -l < deleted-stale.txt || echo 0)" >> $GITHUB_OUTPUT
 
-      - name: Delete stale Dependabot branches (older than 30 days)
-        run: |
-          echo "🧹 Cleaning up stale branches..."
-          
-          # Get current timestamp
-          now=$(date +%s)
-          thirty_days_ago=$((now - 2592000))
-          
-          # Get all dependabot branches
-          for branch in $(git branch -r | grep 'dependabot/' | sed 's/origin\///'); do
-            # Get last commit timestamp
-            last_commit=$(git log -1 --format=%ct "origin/$branch" 2>/dev/null || echo 0)
-            
-            # Skip if we couldn't get the timestamp
-            if [ "$last_commit" = "0" ]; then
-              continue
-            fi
-            
-            # Delete if older than 30 days
-            if [ "$last_commit" -lt "$thirty_days_ago" ]; then
-              # Calculate days old (for logging)
-              days_old=$(( (now - last_commit) / 86400 ))
-              echo "Deleting stale branch: $branch (${days_old} days old)"
-              git push origin --delete "$branch" || true
-            fi
-          done
-          
-          echo "✅ Stale branches cleanup complete!"
+      - name: Upload cleanup logs
+        uses: actions/upload-artifact@v5
+        with:
+          name: branch-cleanup-${{ github.run_id }}
+          path: |
+            all-remote-branches.txt
+            target-branches.txt
+            merged-branches.txt
+            stale-branches.txt
+            deleted-merged.txt
+            deleted-stale.txt
+          retention-days: 14
 
-      - name: Summary
+      - name: Write GitHub Actions summary
         run: |
-          echo "## Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Branch Cleanup Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Merged Dependabot branches: Deleted" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Stale branches (>30 days): Deleted" >> $GITHUB_STEP_SUMMARY
+          echo "**Prefix targeted:** ${{ steps.inputs.outputs.branch_prefix }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Stale threshold (days):** ${{ steps.inputs.outputs.stale_days }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Remaining branches:" >> $GITHUB_STEP_SUMMARY
-          git branch -r | grep 'dependabot/' | sed 's|origin/||' >> $GITHUB_STEP_SUMMARY || echo "None" >> $GITHUB_STEP_SUMMARY
+          echo "### Found branches (matching prefix)" >> $GITHUB_STEP_SUMMARY
+          cat target-branches.txt >> $GITHUB_STEP_SUMMARY || echo "None" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Merged branches (candidates)" >> $GITHUB_STEP_SUMMARY
+          if [ -s merged-branches.txt ]; then
+            cat merged-branches.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "None" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Stale branches (older than ${{ steps.inputs.outputs.stale_days }} days)" >> $GITHUB_STEP_SUMMARY
+          if [ -s stale-branches.txt ]; then
+            cat stale-branches.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "None" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deleted merged branches (log)" >> $GITHUB_STEP_SUMMARY
+          cat deleted-merged.txt >> $GITHUB_STEP_SUMMARY || echo "None" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deleted stale branches (log)" >> $GITHUB_STEP_SUMMARY
+          cat deleted-stale.txt >> $GITHUB_STEP_SUMMARY || echo "None" >> $GITHUB_STEP_SUMMARY

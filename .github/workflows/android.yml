@@ -1,0 +1,180 @@
+name: Android Release Build
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+
+concurrency:
+  group: android-build-${{ github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  JAVA_VERSION: "21"
+  JAVA_DISTRIBUTION: "temurin"
+  APK_MIN_SIZE_BYTES: 100000
+
+jobs:
+  android-release:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout full repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure originating run is same repo
+        run: |
+          ORIGIN="${{ github.event.workflow_run.head_repo.full_name || '' }}"
+          if [ "$ORIGIN" != "${{ github.repository }}" ]; then
+            echo "Origin mismatch ($ORIGIN) — skipping android build."
+            exit 78
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Restore Bun/node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun
+            node_modules
+          key: bun-ci-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json') }}
+          restore-keys: |
+            bun-ci-${{ runner.os }}-
+            bun-ci-
+
+      - name: Install JS deps (bun)
+        run: bun install --frozen-lockfile
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Restore Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/gradle-wrapper.properties','**/build.gradle*','**/settings.gradle*') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required SDK components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+
+      - name: Decode keystore
+        run: |
+          mkdir -p android/app
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 || '' }}" ]; then
+            echo "ERROR: ANDROID_KEYSTORE_BASE64 not set" >&2
+            exit 1
+          fi
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+
+      - name: Export signing vars
+        run: |
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS_PASSWORD=${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Download web-build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: .
+
+      - name: Unpack web build
+        run: |
+          unzip -q dist.zip -d dist || true
+
+      - name: "Capacitor: copy & sync"
+        run: |
+          if [ -x "./node_modules/.bin/cap" ]; then
+            ./node_modules/.bin/cap copy
+            ./node_modules/.bin/cap sync android
+          elif command -v npx >/dev/null 2>&1; then
+            npx cap copy
+            npx cap sync android
+          else
+            echo "ERROR: Capacitor CLI not found" >&2
+            exit 1
+          fi
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build Signed Release APK
+        run: |
+          set -euo pipefail
+          cd android
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify and rename APK
+        id: rename
+        run: |
+          set -euo pipefail
+
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK" ]; then
+            echo "APK missing at $APK" >&2
+            ls -la android/app/build/outputs/apk || true
+            exit 1
+          fi
+
+          # portable stat
+          if stat --version >/dev/null 2>&1; then
+            SIZE=$(stat -c%s "$APK")
+          else
+            SIZE=$(stat -f%z "$APK")
+          fi
+
+          if [ "$SIZE" -lt ${{ env.APK_MIN_SIZE_BYTES }} ]; then
+            echo "APK too small ($SIZE bytes). Threshold: ${{ env.APK_MIN_SIZE_BYTES }}" >&2
+            exit 1
+          fi
+
+          # Robust trigger ref detection
+          TRIGGER_REF="${{ github.event.workflow_run.head_branch || '' }}"
+          if [ -z "$TRIGGER_REF" ]; then
+            TRIGGER_REF="${{ github.event.workflow_run.head_sha || '' }}"
+          fi
+          if [ -z "$TRIGGER_REF" ]; then
+            TRIGGER_REF="$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA:0:7}"
+          fi
+
+          SAFE_REF=$(echo "$TRIGGER_REF" | sed 's|/|_|g' | sed 's/[^A-Za-z0-9._-]/_/g')
+          OUT="expense-tracker-${SAFE_REF}.apk"
+
+          mkdir -p artifacts
+          cp "$APK" "artifacts/$OUT"
+          echo "apk_path=artifacts/$OUT" >> $GITHUB_OUTPUT
+          echo "apk_name=$OUT" >> $GITHUB_OUTPUT
+
+      - name: Upload Signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: ${{ steps.rename.outputs.apk_path }}
+          retention-days: 60

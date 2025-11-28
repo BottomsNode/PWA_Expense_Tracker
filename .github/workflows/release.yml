@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Android Release Build"]
+    types: [completed]
+
+concurrency:
+  group: release-${{ github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check origin and validate tag trigger
+        id: validate_tag
+        run: |
+          set -euo pipefail
+
+          ORIGIN="${{ github.event.workflow_run.head_repo.full_name || '' }}"
+          if [ "$ORIGIN" != "${{ github.repository }}" ]; then
+            echo "Origin mismatch ($ORIGIN) — skipping release."
+            exit 78
+          fi
+
+          # try head_branch then fallbacks
+          TRIGGER_REF="${{ github.event.workflow_run.head_branch || '' }}"
+          if [ -z "$TRIGGER_REF" ]; then
+            TRIGGER_REF="${{ github.event.workflow_run.head_sha || '' }}"
+          fi
+
+          if [ -z "$TRIGGER_REF" ]; then
+            echo "No trigger ref found — aborting release."
+            exit 78
+          fi
+
+          # Accept semver-like tags starting with 'v'
+          if [[ ! "$TRIGGER_REF" =~ ^v[0-9]+(\.[0-9]+)* ]]; then
+            echo "Trigger ref ($TRIGGER_REF) is not a semver tag (vX.Y.Z). Aborting release."
+            exit 78
+          fi
+
+          echo "release_tag=$TRIGGER_REF" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download signed APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: artifacts/
+
+      - name: Ensure APK present
+        run: |
+          if [ -z "$(ls artifacts/*.apk 2>/dev/null || true)" ]; then
+            echo "ERROR: Signed APK not found in artifacts/ — aborting release." >&2
+            exit 1
+          fi
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.validate_tag.outputs.release_tag }}"
+          PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          if [ -n "$PREV" ]; then
+            git log "$PREV"..HEAD --pretty=format:"- %s (%h)" > CHANGELOG.md
+          else
+            git log --pretty=format:"- %s (%h)" --max-count=100 > CHANGELOG.md
+          fi
+
+      - name: Create GitHub Release (upload apk)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.apk
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

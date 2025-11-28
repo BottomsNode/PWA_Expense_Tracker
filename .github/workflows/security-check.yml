@@ -2,108 +2,183 @@ name: Daily Security Check
 
 on:
   schedule:
-    - cron: '0 9 * * *'  # 9 AM daily
+    - cron: "0 9 * * *" # daily at 9 AM UTC
   workflow_dispatch:
+    inputs:
+      min_severity:
+        description: "Minimum severity to trigger failure (low|moderate|high|critical)"
+        required: false
+        default: "moderate"
+      dry_run:
+        description: "If true, do NOT create issues or fail the workflow"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  FORCE_COLOR: "1"
+  DEFAULT_SEVERITY: "moderate"
 
 jobs:
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      contents: read
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'yarn'
-      
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-      
-      - name: Run security audit
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Read workflow inputs
+        id: inputs
+        run: |
+          echo "severity=${{ github.event.inputs.min_severity || env.DEFAULT_SEVERITY }}" >> $GITHUB_OUTPUT
+          echo "dry_run=${{ github.event.inputs.dry_run || 'false' }}" >> $GITHUB_OUTPUT
+
+      - name: Run Bun audit (JSON mode)
         id: audit
         continue-on-error: true
         run: |
-          echo "Running yarn audit..."
-          
-          # Run audit and capture exit code
-          if yarn audit --level moderate --json > audit-results.json; then
-            echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
-            echo "No vulnerabilities found!"
-          else
-            # Audit failed, meaning vulnerabilities were found
+          echo "Running security audit..."
+          bun audit --json > audit-results.json || true
+
+          # Extract vulnerability counts from JSON
+          TOTAL=$(grep -o '"severity":"' audit-results.json | wc -l || echo 0)
+          echo "total_vulns=$TOTAL" >> $GITHUB_OUTPUT
+
+          # pre-classify by severity using grep
+          CRITICAL=$(grep -c '"severity":"critical"' audit-results.json || echo 0)
+          HIGH=$(grep -c '"severity":"high"' audit-results.json || echo 0)
+          MODERATE=$(grep -c '"severity":"moderate"' audit-results.json || echo 0)
+          LOW=$(grep -c '"severity":"low"' audit-results.json || echo 0)
+
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "moderate=$MODERATE" >> $GITHUB_OUTPUT
+          echo "low=$LOW" >> $GITHUB_OUTPUT
+
+          if [ "$TOTAL" -gt 0 ]; then
             echo "vulnerabilities_found=true" >> $GITHUB_OUTPUT
-            
-            # Generate human-readable summary
-            echo "## Security Audit Results" > audit-summary.md
-            echo "" >> audit-summary.md
-            echo "**Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> audit-summary.md
-            echo "" >> audit-summary.md
-            yarn audit --level moderate >> audit-summary.md 2>&1 || true
-            
-            # Also extract summary from JSON
-            echo "" >> audit-summary.md
-            echo "### Summary" >> audit-summary.md
-            cat audit-results.json | grep -o '"vulnerabilities":{[^}]*}' >> audit-summary.md || true
+          else
+            echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
           fi
-      
-      - name: Upload audit results
-        if: steps.audit.outputs.vulnerabilities_found == 'true'
+
+      - name: Generate human-readable summary
+        run: |
+          SEV="${{ steps.inputs.outputs.severity }}"
+          echo "## Security Audit Summary — $(date -u +"%Y-%m-%d %H:%M UTC")" > audit-summary.md
+          echo "" >> audit-summary.md
+          echo "**Minimum severity threshold:** \`$SEV\`" >> audit-summary.md
+          echo "" >> audit-summary.md
+          echo "**Detected vulnerabilities:**" >> audit-summary.md
+          echo "- Critical: ${{ steps.audit.outputs.critical }}" >> audit-summary.md
+          echo "- High: ${{ steps.audit.outputs.high }}" >> audit-summary.md
+          echo "- Moderate: ${{ steps.audit.outputs.moderate }}" >> audit-summary.md
+          echo "- Low: ${{ steps.audit.outputs.low }}" >> audit-summary.md
+          echo "" >> audit-summary.md
+          echo "### Full Audit Output" >> audit-summary.md
+          bun audit >> audit-summary.md 2>&1 || true
+
+      - name: Upload audit logs (artifact)
         uses: actions/upload-artifact@v5
+        if: always()
         with:
-          name: security-audit-results
+          name: security-audit-${{ github.run_id }}
           path: |
             audit-results.json
             audit-summary.md
           retention-days: 30
-      
-      - name: Create issue if vulnerabilities found
-        if: steps.audit.outputs.vulnerabilities_found == 'true'
+
+      - name: Decide if workflow should fail
+        id: decision
+        run: |
+          SEV="${{ steps.inputs.outputs.severity }}"
+          DRY="${{ steps.inputs.outputs.dry_run }}"
+          
+          CRITICAL=${{ steps.audit.outputs.critical }}
+          HIGH=${{ steps.audit.outputs.high }}
+          MODERATE=${{ steps.audit.outputs.moderate }}
+          LOW=${{ steps.audit.outputs.low }}
+
+          FAIL=false
+
+          case "$SEV" in
+            critical)
+              [ "$CRITICAL" -gt 0 ] && FAIL=true
+              ;;
+            high)
+              [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ] && FAIL=true
+              ;;
+            moderate)
+              [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ] || [ "$MODERATE" -gt 0 ] && FAIL=true
+              ;;
+            low)
+              [ "${{ steps.audit.outputs.total_vulns }}" -gt 0 ] && FAIL=true
+              ;;
+            *)
+              FAIL=false
+              ;;
+          esac
+
+          echo "should_fail=$FAIL" >> $GITHUB_OUTPUT
+
+          if [ "$DRY" = "true" ]; then
+            echo "[DRY RUN] Would have failed = $FAIL"
+            echo "should_fail=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create or update GitHub Issue (only on failure)
+        if: steps.decision.outputs.should_fail == 'true'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const summary = fs.readFileSync('audit-summary.md', 'utf8');
-            
-            // Check if issue already exists
+            const repo = context.repo;
+
+            // Find existing issues with label
             const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner: repo.owner,
+              repo: repo.repo,
               state: 'open',
-              labels: 'security,dependencies',
-              per_page: 100
+              labels: 'security,dependencies'
             });
-            
-            const existingIssue = issues.data.find(issue => 
-              issue.title.includes('Security vulnerabilities detected')
-            );
-            
-            if (existingIssue) {
-              // Update existing issue
+
+            const existing = issues.data.find(i => i.title.includes('Security vulnerabilities detected'));
+
+            if (existing) {
               await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existingIssue.number,
-                body: `## New vulnerabilities detected on ${new Date().toISOString().split('T')[0]}\n\n${summary}\n\n---\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`
+                owner: repo.owner,
+                repo: repo.repo,
+                issue_number: existing.number,
+                body: `### New Audit (${new Date().toISOString()})\n\n${summary}`
               });
             } else {
-              // Create new issue
               await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner: repo.owner,
+                repo: repo.repo,
                 title: '🚨 Security vulnerabilities detected',
-                body: `${summary}\n\n---\n**Action Required:** Run \`yarn audit fix\` to resolve vulnerabilities.\n\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`,
+                body: summary,
                 labels: ['security', 'dependencies', 'urgent']
               });
             }
-      
-      - name: Fail workflow if critical vulnerabilities found
-        if: steps.audit.outputs.vulnerabilities_found == 'true'
+
+      - name: Fail workflow if vulnerabilities exceed threshold
+        if: steps.decision.outputs.should_fail == 'true'
         run: |
-          echo "::error::Security vulnerabilities detected! Check the created issue for details."
+          echo "::error::Security vulnerabilities exceed threshold. Check created issue."
           exit 1
+
+      - name: Final Summary (Success)
+        if: steps.decision.outputs.should_fail == 'false'
+        run: |
+          echo "## Security Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✔ No actionable vulnerabilities detected." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See uploaded artifact for full results." >> $GITHUB_STEP_SUMMARY
