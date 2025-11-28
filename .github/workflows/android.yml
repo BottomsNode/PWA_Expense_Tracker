@@ -1,3 +1,4 @@
+---
 name: Android Release Build
 
 on:
@@ -106,8 +107,7 @@ jobs:
           path: .
 
       - name: Unpack web build
-        run: |
-          unzip -q dist.zip -d dist || true
+        run: unzip -q dist.zip -d dist || true
 
       - name: "Capacitor: copy & sync"
         run: |
@@ -143,7 +143,6 @@ jobs:
             exit 1
           fi
 
-          # portable stat
           if stat --version >/dev/null 2>&1; then
             SIZE=$(stat -c%s "$APK")
           else
@@ -155,7 +154,6 @@ jobs:
             exit 1
           fi
 
-          # Robust trigger ref detection
           TRIGGER_REF="${{ github.event.workflow_run.head_branch || '' }}"
           if [ -z "$TRIGGER_REF" ]; then
             TRIGGER_REF="${{ github.event.workflow_run.head_sha || '' }}"
