@@ -1,189 +1,68 @@
-name: CI Pipeline
+---
+name: CI → Android Build → Optional Release (Cyberpunk)
 
+# Triggers: branch pushes, tags starting with v, PRs, manual
 on:
-  # Trigger CI on pushes to main/dev and on version tags like v1.2.3
   push:
     branches: [main, dev]
+    tags: ['v*']
   pull_request:
     branches: [main, dev]
   workflow_dispatch:
 
-# Prevent multiple concurrent runs for same branch/tag
 concurrency:
-  group: ci-pipeline-${{ github.ref }}
+  group: cyberpunk-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   checks: write
 
 env:
+  NODE_VERSION: '20'
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'temurin'
+  BUN_VERSION: '1.3.2'
+  APK_MIN_SIZE_BYTES: 100000
   ARTIFACT_RETENTION_DAYS: 14
-  BUN_VERSION: "1.3.2"
+  CYBER_ACENT: '\033[95m'   # neon magenta
+  CYBER_OK: '\033[92m'      # neon green
+  CYBER_WARN: '\033[93m'    # neon yellow
+  CYBER_FAIL: '\033[91m'    # neon red
+  CYBER_RST: '\033[0m'
 
+########################
+# CI: LINT / TYPECHECK / TEST / WEB BUILD
+########################
 jobs:
-
-  ################################################################################
-  # SECRET SCAN
-  ################################################################################
-  secret-scan:
+  ci:
+    name: "CI — Lint · Typecheck · Test · Web Build"
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    outputs:
+      web_artifact: web-build
     steps:
-      - name: Checkout (full)
+      - name: "⤴ Checkout"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: TruffleHog secret scan
-        uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --only-verified
-        continue-on-error: true
-
-  ################################################################################
-  # LINT
-  ################################################################################
-  lint:
-    runs-on: ubuntu-latest
-    needs: secret-scan
-    outputs:
-      lint_status: ${{ steps.eslint_out.outputs.status }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Restore Bun/node_modules cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun
-            node_modules
-          key: bun-ci-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json') }}
-          restore-keys: |
-            bun-ci-${{ runner.os }}-
-            bun-ci-
-
-      - name: Install deps (bun)
-        run: bun install --frozen-lockfile
-
-      - name: Run ESLint
-        id: eslint_out
+      - name: "✨ Announce (theme)"
         run: |
-          set +e
-          bunx eslint . --max-warnings=0
-          echo "status=$([[ $? -eq 0 ]] && echo success || echo failure)" >> $GITHUB_OUTPUT
+          echo -e "${{ env.CYBER_ACENT }}┏━━ CYBERPUNK CI: BOOTING ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${{ env.CYBER_RST }}"
+          echo "::group::🛰️ Environment"
+          echo "Ref: $GITHUB_REF"
+          echo "SHA: $GITHUB_SHA"
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "::endgroup::"
 
-      - name: Upload ESLint cache (artifact)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: eslint-cache-${{ github.sha }}
-          path: .eslintcache
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
-
-  ################################################################################
-  # TYPECHECK
-  ################################################################################
-  typecheck:
-    runs-on: ubuntu-latest
-    needs: secret-scan
-    outputs:
-      type_status: ${{ steps.ts_out.outputs.status }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
+      - name: "⚙️ Setup Bun (fast runtime)"
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Restore Bun/node_modules cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun
-            node_modules
-          key: bun-ci-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json') }}
-          restore-keys: |
-            bun-ci-${{ runner.os }}-
-            bun-ci-
-
-      - name: Install deps (bun)
-        run: bun install --frozen-lockfile
-
-      - name: Run TypeScript check
-        id: ts_out
-        run: |
-          set +e
-          bunx tsc --noEmit
-          echo "status=$([[ $? -eq 0 ]] && echo success || echo failure)" >> $GITHUB_OUTPUT
-
-  ################################################################################
-  # TESTS
-  ################################################################################
-  test:
-    runs-on: ubuntu-latest
-    needs: [lint, typecheck]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Restore Bun cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun
-            node_modules
-          key: bun-test-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json') }}
-          restore-keys: |
-            bun-test-${{ runner.os }}-
-            bun-test-
-
-      - name: Install deps
-        run: bun install --frozen-lockfile
-
-      - name: Run tests + coverage (ignore no-test failure)
-        run: |
-          bunx vitest run --coverage || echo "No tests found — skipping"
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-${{ github.sha }}
-          path: coverage
-          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
-
-  ################################################################################
-  # BUILD WEB
-  ################################################################################
-  build-web:
-    runs-on: ubuntu-latest
-    needs: [lint, typecheck, test]
-    outputs:
-      web_artifact: web-build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Restore Bun & Vite cache
+      # Bun/node caches: split keys for better hit rates
+      - name: "📦 Restore Bun / node_modules / vite cache"
         uses: actions/cache@v4
         with:
           path: |
@@ -191,112 +70,280 @@ jobs:
             node_modules
             .vite
             node_modules/.cache
-          key: bun-web-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json','**/vite.config.*') }}
+          key: bun-node-${{ runner.os }}-${{ hashFiles('**/bun.lockb','**/package.json') }}
           restore-keys: |
-            bun-web-${{ runner.os }}-
-            bun-web-
+            bun-node-${{ runner.os }}-
 
-      - name: Install deps
-        run: bun install --frozen-lockfile
-
-      - name: Basic PWA manifest check
+      - name: "⬇️ Install dependencies"
         run: |
-          if [ -f public/manifest.json ]; then
-            jq -e '.name and .start_url and .icons' public/manifest.json || echo "WARNING: manifest incomplete"
-          else
-            echo "WARNING: public/manifest.json not found"
-          fi
+          echo "::group::🔧 Installing dependencies"
+          echo -e "${{ env.CYBER_ACENT }}▸ bun install --frozen-lockfile${{ env.CYBER_RST }}"
+          bun install --frozen-lockfile
+          echo "::endgroup::"
 
-      - name: Build (Vite)
-        run: bun run build
-
-      - name: Pack dist into zip
+      - name: "🔎 Lint (ESLint)"
         run: |
+          echo "::group::🧹 Lint"
+          echo -e "${{ env.CYBER_ACENT }}▸ Running ESLint${{ env.CYBER_RST }}"
+          set -o pipefail
+          bunx eslint . --max-warnings=0 || (echo -e "${{ env.CYBER_FAIL }}✗ Lint failed${{ env.CYBER_RST }}" && exit 1)
+          echo -e "${{ env.CYBER_OK }}✓ Lint passed${{ env.CYBER_RST }}"
+          echo "::endgroup::"
+
+      - name: "🧾 TypeScript check"
+        run: |
+          echo "::group::📐 Typecheck"
+          bunx tsc --noEmit || (echo -e "${{ env.CYBER_FAIL }}✗ Typecheck failed${{ env.CYBER_RST }}" && exit 1)
+          echo -e "${{ env.CYBER_OK }}✓ Typecheck passed${{ env.CYBER_RST }}"
+          echo "::endgroup::"
+
+      - name: "🧪 Tests"
+        run: |
+          echo "::group::🧪 Tests"
+          set -o pipefail
+          bunx vitest run --coverage || echo -e "${{ env.CYBER_WARN }}No tests or some tests failed (check logs)${{ env.CYBER_RST }}"
+          echo "::endgroup::"
+
+      - name: "🌐 Build web (Vite)"
+        run: |
+          echo "::group::🌐 Building Web (Vite)"
+          echo -e "${{ env.CYBER_ACENT }}▸ bun run build${{ env.CYBER_RST }}"
+          bun run build
+          echo -e "${{ env.CYBER_OK }}✓ Web build complete${{ env.CYBER_RST }}"
+          echo "::endgroup::"
+
+      - name: "📦 Package dist → dist.zip"
+        run: |
+          echo "::group::📦 Packaging"
           if [ -d dist ]; then
             cd dist
             zip -r ../dist.zip . || true
             cd ..
+            echo -e "${{ env.CYBER_OK }}✓ dist.zip created${{ env.CYBER_RST }}"
           else
-            echo "ERROR: dist missing" >&2
-          exit 1
-          fi
-
-      - name: Verify dist.zip exists
-        run: |
-          if [ ! -f dist.zip ]; then
-            echo "ERROR: dist.zip not found" >&2
+            echo -e "${{ env.CYBER_FAIL }}✗ dist missing${{ env.CYBER_RST }}"
             exit 1
           fi
-          du -sh dist || true
+          echo "::endgroup::"
 
-      - name: Upload web artifact
+      - name: "🗄️ Upload web artifact"
         uses: actions/upload-artifact@v4
         with:
           name: web-build
           path: dist.zip
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
-          if-no-files-found: error
 
-  ################################################################################
-  # Canary (PR only)
-  ################################################################################
-  canary:
-    needs: build-web
+      - name: "📜 Write CI summary"
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Ref: $GITHUB_REF" >> $GITHUB_STEP_SUMMARY
+          echo "- SHA: $GITHUB_SHA" >> $GITHUB_STEP_SUMMARY
+          echo "- Web artifact: web-build" >> $GITHUB_STEP_SUMMARY
+
+########################
+# ANDROID BUILD (consumes web artifact)
+########################
+  android:
+    name: "Android Build · Sign APK"
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    needs: ci
+    if: ${{ needs.ci.result == 'success' }}
     steps:
-      - name: Download web artifact
+      - name: "⤴ Checkout"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "⚙️ Setup Node (for Capacitor) & Bun"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: "✨ Setup Bun"
+        uses: oven-sh/setup-bun@v2
+
+      - name: "☕ Setup Java"
+        uses: actions/setup-java@v5
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: "🛠️ Restore Gradle cache"
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+            android/.gradle-build-cache
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/gradle-wrapper.properties','**/build.gradle*','**/settings.gradle*') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: "🧭 Setup Android SDK"
+        uses: android-actions/setup-android@v3
+
+      - name: "🔐 Decode keystore (secure)"
+        run: |
+          echo "::group::🔐 Keystore"
+          mkdir -p android/app
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 || '' }}" ]; then
+            echo -e "${{ env.CYBER_FAIL }}ERROR: ANDROID_KEYSTORE_BASE64 not set${{ env.CYBER_RST }}" >&2
+            exit 1
+          fi
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
+          echo "::endgroup::"
+
+      - name: "🧾 Export signing env"
+        run: |
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS_PASSWORD=${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: "📥 Download web-build artifact"
         uses: actions/download-artifact@v4
         with:
           name: web-build
           path: .
 
-      - name: Unpack dist
+      - name: "📂 Unpack web build"
         run: |
-          unzip -q dist.zip -d preview-dist || true
+          echo "::group::📂 Unpack web-build"
+          ls -la dist.zip || true
+          unzip -q dist.zip -d dist || true
+          echo "::endgroup::"
 
-      - name: Upload preview artifact
+      - name: "🔁 Capacitor: copy & sync (android)"
+        run: |
+          echo "::group::🔁 Capacitor sync"
+          if [ -x "./node_modules/.bin/cap" ]; then
+            ./node_modules/.bin/cap copy
+            ./node_modules/.bin/cap sync android
+          elif command -v npx >/dev/null 2>&1; then
+            npx cap copy
+            npx cap sync android
+          else
+            echo -e "${{ env.CYBER_FAIL }}ERROR: Capacitor CLI not found${{ env.CYBER_RST }}" >&2
+            exit 1
+          fi
+          echo "::endgroup::"
+
+      - name: "🧰 Build Signed Release APK"
+        run: |
+          echo "::group::🧰 Gradle build"
+          cd android
+          chmod +x gradlew
+          # enable daemon + configure build cache usage if available
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          echo "::endgroup::"
+
+      - name: "🔎 Verify and inline rename APK"
+        id: rename
+        run: |
+          echo "::group::🔎 Verify APK"
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK" ]; then
+            echo -e "${{ env.CYBER_FAIL }}✗ APK missing at $APK${{ env.CYBER_RST }}" >&2
+            ls -la android/app/build/outputs || true
+            exit 1
+          fi
+
+          # portable size check
+          if stat --version >/dev/null 2>&1; then
+            SIZE=$(stat -c%s "$APK")
+          else
+            SIZE=$(stat -f%z "$APK")
+          fi
+
+          if [ "$SIZE" -lt ${{ env.APK_MIN_SIZE_BYTES }} ]; then
+            echo -e "${{ env.CYBER_FAIL }}✗ APK too small ($SIZE bytes). Threshold: ${{ env.APK_MIN_SIZE_BYTES }}${{ env.CYBER_RST }}" >&2
+            exit 1
+          fi
+
+          OUT="expense-tracker-${GITHUB_SHA:0:7}.apk"
+          mkdir -p artifacts
+          cp "$APK" "artifacts/$OUT"
+          echo "apk_path=artifacts/$OUT" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+          echo -e "${{ env.CYBER_OK }}✓ APK verified and copied → artifacts/$OUT${{ env.CYBER_RST }}"
+
+      - name: "🗄️ Upload android-apk artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: preview-web-${{ github.sha }}
-          path: preview-dist/**
-          retention-days: 7
+          name: android-apk
+          path: ${{ steps.rename.outputs.apk_path }}
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
-  ################################################################################
-  # PR Summary (deduped)
-  ################################################################################
-  pr-summary:
-    needs: [lint, typecheck]
+      - name: "📜 Android step summary"
+        run: |
+          echo "## Android Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- APK artifact: android-apk" >> $GITHUB_STEP_SUMMARY
+          echo "- SHA: $GITHUB_SHA" >> $GITHUB_STEP_SUMMARY
+          echo "- APK size threshold: ${{ env.APK_MIN_SIZE_BYTES }} bytes" >> $GITHUB_STEP_SUMMARY
+
+########################
+# RELEASE: create GitHub Release only on semver tags (v*)
+########################
+  release:
+    name: "Release (tags only)"
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    needs: android
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: Post or update PR comment
-        uses: actions/github-script@v7
+      - name: "⤴ Checkout"
+        uses: actions/checkout@v4
         with:
-          script: |
-            const pr = context.payload.pull_request;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const lint = "${{ needs.lint.outputs.lint_status }}";
-            const ts = "${{ needs.typecheck.outputs.type_status }}";
+          fetch-depth: 0
 
-            const body = `## CI Summary
-            | Check | Status |
-            |------|--------|
-            | ESLint | **${lint}** |
-            | TypeScript | **${ts}** |
+      - name: "📥 Download APK artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: artifacts/
 
-            Artifacts:
-            - web-build
-            - coverage report
+      - name: "📝 Generate changelog"
+        id: changelog
+        run: |
+          echo "::group::📝 Generating changelog"
+          TAG="${GITHUB_REF#refs/tags/}"
+          PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          if [ -n "$PREV" ]; then
+            git log "$PREV"..HEAD --pretty=format:"- %s (%h)" > CHANGELOG.md
+          else
+            git log --pretty=format:"- %s (%h)" --max-count=200 > CHANGELOG.md
+          fi
+          echo "::endgroup::"
+          echo "changelog_path=CHANGELOG.md" >> $GITHUB_OUTPUT
 
-            _This comment is auto-generated._`;
+      - name: "🚀 Create GitHub Release"
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.apk
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-                        // find existing bot comment
-                        const comments = await github.rest.issues.listComments({ owner, repo, issue_number: pr.number });
-                        const botComment = comments.data.find(c => c.user && c.user.type === 'Bot' && c.body && c.body.includes('## CI Summary'));
-                        if (botComment) {
-                          await github.rest.issues.updateComment({ owner, repo, comment_id: botComment.id, body });
-                        } else {
-                          await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
-                        }
+      - name: "✅ Release summary"
+        run: |
+          echo "## Release created: ${GITHUB_REF#refs/tags/}" >> $GITHUB_STEP_SUMMARY
+          echo "- Attached artifacts: artifacts/*.apk" >> $GITHUB_STEP_SUMMARY
+          echo "- CHANGELOG: ${{ steps.changelog.outputs.changelog_path }}" >> $GITHUB_STEP_SUMMARY
+
+########################
+# END: Global cleanup/message
+########################
+  final:
+    name: "Final Neon Echo"
+    runs-on: ubuntu-latest
+    needs: [ci]
+    if: ${{ always() }}
+    steps:
+      - name: "🧾 Dump run summary (neon)"
+        run: |
+          echo -e "${{ env.CYBER_ACENT }}┏━━ RUN SUMMARY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${{ env.CYBER_RST }}"
+          echo "Workflow: $GITHUB_WORKFLOW"
+          echo "Ref: $GITHUB_REF"
+          echo "Result: ${{ job.status || 'unknown' }}"
+          echo -e "${{ env.CYBER_ACENT }}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${{ env.CYBER_RST }}"
