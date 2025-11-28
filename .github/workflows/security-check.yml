@@ -184,8 +184,17 @@ jobs:
         if: steps.decision.outputs.should_fail == 'false'
         run: |
           GREEN="\033[32m"
-          CYAN="\033[36m"
           RESET="\033[0m"
 
+          # Console output WITH COLOR
           echo -e "${GREEN}✔ No actionable vulnerabilities detected.${RESET}"
-          echo -e "${CYAN}See uploaded artifact for full results.${RESET}" >> $GITHUB_STEP_SUMMARY
+
+          # Summary output WITHOUT COLOR (GitHub UI cannot display ANSI codes)
+          {
+            echo "## Security Check"
+            echo ""
+            echo "✔ No actionable vulnerabilities detected."
+            echo ""
+            echo "See uploaded artifact for full results."
+          } >> $GITHUB_STEP_SUMMARY
+
