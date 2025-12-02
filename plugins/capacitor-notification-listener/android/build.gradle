@@ -2,11 +2,11 @@ apply plugin: 'com.android.library'
 
 android {
     namespace "com.bottomsnode.notifications"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 22
-        targetSdk = 35
+        targetSdk = 36
     }
 
     sourceSets {
