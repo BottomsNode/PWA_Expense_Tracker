@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">expense-tracker</string>
     <string name="title_activity_main">expense-tracker</string>
-    <string name="package_name">com.bottomsnode.expensetracker</string>
-    <string name="custom_url_scheme">com.bottomsnode.expensetracker</string>
+    <string name="package_name">com.BinaryStudio8.expensetracker</string>
+    <string name="custom_url_scheme">com.BinaryStudio8.expensetracker</string>
 </resources>

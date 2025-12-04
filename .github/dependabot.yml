@@ -13,8 +13,8 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
-    assignees: ["BottomsNode"]
-    reviewers: ["BottomsNode"]
+    assignees: ["BinaryStudio8"]
+    reviewers: ["BinaryStudio8"]
     labels: ["dependencies"]
     commit-message:
       prefix: "chore"

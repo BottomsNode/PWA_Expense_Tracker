@@ -1,4 +1,4 @@
-package com.bottomsnode.notifications;
+package com.BinaryStudio8.notifications;
 
 import android.content.Context;
 import android.content.Intent;

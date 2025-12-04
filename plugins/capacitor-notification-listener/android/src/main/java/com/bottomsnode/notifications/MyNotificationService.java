@@ -1,4 +1,4 @@
-package com.bottomsnode.notifications;
+package com.BinaryStudio8.notifications;
 
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;

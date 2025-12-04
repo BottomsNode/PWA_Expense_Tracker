@@ -1,7 +1,7 @@
 apply plugin: 'com.android.library'
 
 android {
-    namespace "com.bottomsnode.notifications"
+    namespace "com.BinaryStudio8.notifications"
     compileSdk = 36
 
     defaultConfig {

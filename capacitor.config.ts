@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.bottomsnode.expensetracker",
+  appId: "com.BinaryStudio8.expensetracker",
   appName: "expense-tracker",
   webDir: "dist",
 
